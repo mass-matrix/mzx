@@ -1,0 +1,15 @@
+__pycache__
+**.DS_Store**
+**.mxML
+**.mzml
+results
+.mypy_cache
+rust*
+.pytest_cache
+**/tmp
+**NIST**/
+**vscode
+venv
+**.ipynb_checkpoints
+**.ipynb
+raw_files/

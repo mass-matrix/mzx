@@ -1,0 +1,289 @@
+import os
+import sys
+import subprocess
+import argparse
+from loguru import logger
+import re
+import shlex
+import os
+import shutil
+
+docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
+
+
+def run_cmd(cmd):
+
+    "Run a command and return the output"
+    cmd = shlex.split(cmd, posix=True)
+    logger.info(f"Running command: {cmd}")
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+
+    output = ""
+    while True:
+        line = p.stdout.readline()
+        if not line:
+            break
+        logger.info(line.strip(), flush=True),
+        output = output + line
+
+    logger.info("Process Complete")
+    return output
+
+
+def get_vendor(file):
+
+    # determine the vendor of the file
+    # currently only supports Thermo and Agilent
+    # returns the vendor name
+    # if the vendor is not supported, returns None
+
+    logger.info(f"Getting vendor for file: {file}")
+    # determine if file is folder or directory
+
+    vendor = None
+
+    if os.path.isdir(file):
+        logger.info(f"File is a directory.")
+        if ".d" in file:
+            vendor = "bruker"
+        elif ".raw" in file:
+            vendor = "waters"
+        else:
+            files = os.listdir(file)
+            for f in files:
+                if "_FUNC" in f:
+                    vendor = "waters"
+                else:
+                    vendor = "unspecified"
+    else:
+        logger.info(f"File is a directory.")
+        if file.endswith(".raw"):
+            vendor = "Thermo"
+        elif file.endswith(".d"):
+            vendor = "Agilent"
+        else:
+            vendor = "unspecified"
+
+    logger.info(f"Vendor is {vendor}.")
+    return vendor
+
+
+def format_function_number(s):
+    match = re.search(r"Function (\d+)", s)
+    if match:
+        function_number = int(match.group(1))
+        return f"_FUNC{function_number:03d}"
+    else:
+        return None
+
+
+def modify_waters_scan_header(line):
+
+    pattern = re.compile(
+        r'<spectrum index="(\d+)" id="function=(\d+) process=(\d+) scan=(\d+)"'
+    )
+    match = pattern.search(line)
+
+    if match:
+        index, function, process, scan = match.groups()
+        # Calculate new scan value
+        new_scan_value = int(index) + 1
+        # Replace and add the scan and fscan values in the line
+        modified_line = re.sub(r"scan=\d+", f"scan={new_scan_value} fscan={scan}", line)
+        # logger.debug(line)
+        # logger.debug(modified_line)
+        return modified_line
+    else:
+        return line
+
+
+def process_waters_scan_headers(file_path):
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+
+    modified_lines = []
+    for line in lines:
+        modified_lines.append(modify_waters_scan_header(line))
+
+    with open(file_path, "w") as file:
+        file.writelines(modified_lines)
+
+
+def waters_convert(file):
+
+    # convert Waters raw file to mzML format
+
+    logger.info(f"Converting Waters file: {file}")
+
+    # get the list of files in the directory
+    files = os.listdir(file)
+    # Test if _extern.inf file is present
+    extern_file = [f for f in files if "_extern.inf" in f]
+    if not extern_file:
+        logger.error(f"Could not find _extern.inf file.")
+        return None
+    else:
+        logger.info(f"Found _extern.inf file.")
+        # Read the _extern.inf file
+        extern_file = os.path.join(file, extern_file[0])
+        with open(extern_file, "r", encoding="utf8", errors="ignore") as f:
+            lines = f.readlines()
+            # Identify the function file for the REFERENCE
+
+            for line in lines:
+                if "REFERENCE" in line:
+                    function_string = format_function_number(line)
+
+                    logger.info(f"Reference found: {function_string}")
+                    break
+
+    # Identify the function files
+
+    func_files = [f for f in files if "_FUNC" in f]
+    old_function_file = None
+    old_function_file = None
+    for func_file in func_files:
+        if function_string in func_file and (
+            ".dat" in func_file or ".DAT" in func_file
+        ):
+            logger.info(f"Function file found: {func_file}")
+            old_function_file = os.path.join(file, func_file)
+            new_function_file = os.path.join(file, func_file + ".tmp")
+
+    logger.info(f"Renaming lockmass function file")
+    os.rename(old_function_file, new_function_file)
+    logger.info(f"Processing Waters file First Pass")
+    outfile = msconvert(
+        file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
+    )
+    outfile_temp = os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
+    os.rename(outfile, outfile_temp)
+
+    logger.info(f"Processing Waters scan headers")
+    process_waters_scan_headers(outfile_temp)
+
+    logger.info(f"Processing Waters mzML (adding index)")
+    outfile = msconvert(
+        outfile_temp,
+        outfile=outfile,
+        index=True,
+        peak_picking=True,
+        remove_zeros=True,
+    )
+
+    # os.remove(outfile_temp)
+
+    logger.info(f"Processing Waters file")
+
+    logger.info(f"Restoring lockmass function file")
+    os.rename(new_function_file, old_function_file)
+
+    return outfile
+
+
+def convert_raw_file(file, vendor):
+
+    # convert the raw file to mzML format
+
+    logger.info(f"Converting {vendor} file: {file}")
+    match vendor:
+
+        case "thermo":
+            outfile = msconvert(file)
+            return outfile
+
+        case "agilent":
+            outfile = msconvert(file)
+            return outfile
+
+        case "waters":
+            outfile = waters_convert(file)
+            return outfile
+
+        case "bruker":
+            outfile = msconvert(file)
+            return outfile
+
+        case "unspecified":
+            logger.error(f"Vendor not supported, trying msconvert.")
+            outfile = msconvert(file)
+            return outfile
+
+
+def msconvert(
+    file,
+    outfile=None,
+    type="mzml",
+    index=True,
+    sortbyscan=False,
+    peak_picking=True,
+    remove_zeros=True,
+):
+    """
+    Converts the given file to the mzML format using the msconvert tool.
+    """
+    params = ""
+    path = os.path.abspath(file)
+    directory = os.path.dirname(path)
+    filename = os.path.basename(file)
+
+    logger.info(f"File path = {path}")
+    logger.info(f"Converting {file} to {type} format.")
+    logger.info(f"Input directory: {directory}")
+    logger.info(f"Input filename: {filename}")
+
+    if outfile is not None:
+        outfilename = os.path.basename(outfile)
+        base = os.path.splitext(outfilename)[0]
+    else:
+        base = os.path.splitext(filename)[0]
+
+    if type == "mzxml":
+        params += " --mzXML"
+        outfile = base + ".mzXML"
+    elif type == "mgf":
+        params += " --mgf"
+        outfile = base + ".mgf"
+    else:
+        params += " --mzML"
+        outfile = base + ".mzML"
+
+    logger.info(f"Output file: {outfile}")
+    params += f" --outfile /data/{outfile}"
+
+    if index == False:
+        params += " --noindex"
+
+    if sortbyscan == True:
+        params += " --filter 'sortByScanTime'"
+
+    if peak_picking == True:
+        params += " --filter 'peakPicking true 1-'"
+
+    if remove_zeros == True:
+        params += " --filter 'zeroSamples removeExtra'"
+
+    cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
+        directory, docker_image, filename, params
+    )
+
+    logger.info(f"Running msconvert")
+
+    output = run_cmd(cmd)
+
+    logger.info(f"Conversion complete.")
+
+    return os.path.join(directory, outfile)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Converts a file to mzML format using msconvert."
+    )
+    parser.add_argument("file", type=str, help="The file to convert.")
+    parser.add_argument("--type", type=str, default="mzml", help="The output format.")
+    args = parser.parse_args()
+    infile = args.file
+
+    vendor = get_vendor(infile)
+    outfile = convert_raw_file(infile, vendor)
