@@ -12,8 +12,9 @@ docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
 
 def run_cmd(cmd):
-
-    "Run a command and return the output"
+    """
+    Run a command and return the output.
+    """
     cmd = shlex.split(cmd, posix=True)
     logger.info(f"Running command: {cmd}")
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
@@ -31,12 +32,12 @@ def run_cmd(cmd):
 
 
 def get_vendor(file):
-
-    # determine the vendor of the file
-    # currently only supports Thermo and Agilent
-    # returns the vendor name
-    # if the vendor is not supported, returns None
-
+    """
+    Determine the vendor of the file.
+    Currently only supports Thermo and Agilent.
+    Returns the vendor name.
+    If the vendor is not supported, returns None.
+    """
     logger.info(f"Getting vendor for file: {file}")
     # determine if file is folder or directory
 
@@ -78,7 +79,9 @@ def format_function_number(s):
 
 
 def modify_waters_scan_header(line):
-
+    """
+    Modify the Waters scan header line.
+    """
     pattern = re.compile(
         r'<spectrum index="(\d+)" id="function=(\d+) process=(\d+) scan=(\d+)"'
     )
@@ -98,6 +101,9 @@ def modify_waters_scan_header(line):
 
 
 def process_waters_scan_headers(file_path):
+    """
+    Process the Waters scan headers in the given file.
+    """
     with open(file_path, "r") as file:
         lines = file.readlines()
 
@@ -110,9 +116,9 @@ def process_waters_scan_headers(file_path):
 
 
 def waters_convert(file):
-
-    # convert Waters raw file to mzML format
-
+    """
+    Convert Waters raw file to mzML format.
+    """
     logger.info(f"Converting Waters file: {file}")
 
     # get the list of files in the directory
@@ -182,9 +188,9 @@ def waters_convert(file):
 
 
 def convert_raw_file(file, vendor):
-
-    # convert the raw file to mzML format
-
+    """
+    Convert the raw file to mzML format based on the vendor.
+    """
     logger.info(f"Converting {vendor} file: {file}")
     match vendor:
 
@@ -277,6 +283,7 @@ def msconvert(
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(
         description="Converts a file to mzML format using msconvert."
     )

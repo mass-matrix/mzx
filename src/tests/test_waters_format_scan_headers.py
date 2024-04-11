@@ -2,7 +2,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from msconvert_docker import *
+from src.mm_convert import *
 
 
 def test_modify_waters_scan_header():
