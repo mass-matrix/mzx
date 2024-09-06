@@ -68,12 +68,6 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then uv pip install --system -r requirements-dev.txt; fi
-      - name: Wait for PostgreSQL to start
-        run: |
-          until PGPASSWORD=postgres psql -h localhost -p 5423 -U postgres -d mm_test -c '\q'; do
-            echo "Waiting for PostgreSQL to start..."
-            sleep 5
-          done
       - name: pytest
         run: |
           make test
