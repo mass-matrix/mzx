@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+setup.py
+src/mmconvert/__init__.py
+src/mmconvert/cli.py
+src/mmconvert.egg-info/PKG-INFO
+src/mmconvert.egg-info/SOURCES.txt
+src/mmconvert.egg-info/dependency_links.txt
+src/mmconvert.egg-info/entry_points.txt
+src/mmconvert.egg-info/requires.txt
+src/mmconvert.egg-info/top_level.txt
+tests/test_waters_format_scan_headers.py

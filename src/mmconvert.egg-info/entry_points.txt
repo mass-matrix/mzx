@@ -1,0 +1,2 @@
+[console_scripts]
+mmconvert = mmconvert.cli:main
