@@ -1,12 +1,11 @@
+__version__ = "0.1.0"
+
 import os
-import sys
 import subprocess
-import argparse
-from loguru import logger
 import re
 import shlex
-import os
-import shutil
+
+from loguru import logger
 
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
@@ -24,7 +23,7 @@ def run_cmd(cmd):
         line = p.stdout.readline()
         if not line:
             break
-        logger.info(line.strip(), flush=True),
+        (logger.info(line.strip(), flush=True),)
         output = output + line
 
     logger.info("Process Complete")
@@ -44,7 +43,7 @@ def get_vendor(file):
     vendor = None
 
     if os.path.isdir(file):
-        logger.info(f"File is a directory.")
+        logger.info("File is a directory.")
         if ".d" in file:
             vendor = "bruker"
         elif ".raw" in file:
@@ -57,7 +56,7 @@ def get_vendor(file):
                 else:
                     vendor = "unspecified"
     else:
-        logger.info(f"File is a directory.")
+        logger.info("File is a directory.")
         if file.endswith(".raw"):
             vendor = "Thermo"
         elif file.endswith(".d"):
@@ -126,10 +125,10 @@ def waters_convert(file):
     # Test if _extern.inf file is present
     extern_file = [f for f in files if "_extern.inf" in f]
     if not extern_file:
-        logger.error(f"Could not find _extern.inf file.")
+        logger.error("Could not find _extern.inf file.")
         return None
     else:
-        logger.info(f"Found _extern.inf file.")
+        logger.info("Found _extern.inf file.")
         # Read the _extern.inf file
         extern_file = os.path.join(file, extern_file[0])
         with open(extern_file, "r", encoding="utf8", errors="ignore") as f:
@@ -156,19 +155,19 @@ def waters_convert(file):
             old_function_file = os.path.join(file, func_file)
             new_function_file = os.path.join(file, func_file + ".tmp")
 
-    logger.info(f"Renaming lockmass function file")
+    logger.info("Renaming lockmass function file")
     os.rename(old_function_file, new_function_file)
-    logger.info(f"Processing Waters file First Pass")
+    logger.info("Processing Waters file First Pass")
     outfile = msconvert(
         file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
     )
     outfile_temp = os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
     os.rename(outfile, outfile_temp)
 
-    logger.info(f"Processing Waters scan headers")
+    logger.info("Processing Waters scan headers")
     process_waters_scan_headers(outfile_temp)
 
-    logger.info(f"Processing Waters mzML (adding index)")
+    logger.info("Processing Waters mzML (adding index)")
     outfile = msconvert(
         outfile_temp,
         outfile=outfile,
@@ -179,9 +178,9 @@ def waters_convert(file):
 
     # os.remove(outfile_temp)
 
-    logger.info(f"Processing Waters file")
+    logger.info("Processing Waters file")
 
-    logger.info(f"Restoring lockmass function file")
+    logger.info("Restoring lockmass function file")
     os.rename(new_function_file, old_function_file)
 
     return outfile
@@ -193,7 +192,6 @@ def convert_raw_file(file, vendor):
     """
     logger.info(f"Converting {vendor} file: {file}")
     match vendor:
-
         case "thermo":
             outfile = msconvert(file)
             return outfile
@@ -211,7 +209,7 @@ def convert_raw_file(file, vendor):
             return outfile
 
         case "unspecified":
-            logger.error(f"Vendor not supported, trying msconvert.")
+            logger.error("Vendor not supported, trying msconvert.")
             outfile = msconvert(file)
             return outfile
 
@@ -257,40 +255,26 @@ def msconvert(
     logger.info(f"Output file: {outfile}")
     params += f" --outfile /data/{outfile}"
 
-    if index == False:
+    if index is False:
         params += " --noindex"
 
-    if sortbyscan == True:
+    if sortbyscan is True:
         params += " --filter 'sortByScanTime'"
 
-    if peak_picking == True:
+    if peak_picking is True:
         params += " --filter 'peakPicking true 1-'"
 
-    if remove_zeros == True:
+    if remove_zeros is True:
         params += " --filter 'zeroSamples removeExtra'"
 
     cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
         directory, docker_image, filename, params
     )
 
-    logger.info(f"Running msconvert")
+    logger.info("Running msconvert")
 
-    output = run_cmd(cmd)
+    _output = run_cmd(cmd)
 
-    logger.info(f"Conversion complete.")
+    logger.info("Conversion complete.")
 
     return os.path.join(directory, outfile)
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(
-        description="Converts a file to mzML format using msconvert."
-    )
-    parser.add_argument("file", type=str, help="The file to convert.")
-    parser.add_argument("--type", type=str, default="mzml", help="The output format.")
-    args = parser.parse_args()
-    infile = args.file
-
-    vendor = get_vendor(infile)
-    outfile = convert_raw_file(infile, vendor)

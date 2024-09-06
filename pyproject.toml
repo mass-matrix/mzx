@@ -1,0 +1,55 @@
+[project]
+maintainers = [
+  { name = "Herman Singh", email = "herman@massmatrix.bio" },
+  { name = "MassMatrix", email = "eng@massmatrix.bio" },
+]
+authors = [{ name = "Michael Freitas", email = "mike@massmatrix.bio" }]
+name = "mmconvert"
+description = "Easy to use Mass Spec conversion utility"
+readme = "README.md"
+license = { text = "MIT License" }
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: File Formats",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Software Development",
+]
+requires-python = ">=3.11"
+dependencies = ["loguru", "lxml", "matplotlib", "numpy", "pyteomics"]
+dynamic = ["version"]
+
+[project.scripts]
+mmconvert = "mmconvert.cli:main"
+
+[project.urls]
+Documentation = "https://readthedocs.org/projects/mmconvert"
+"Source Code" = "https://github.com/mass-matrix/mm_convert"
+"Issue Tracker" = "https://github.com/mass-matrix/mm_convert/issues"
+
+
+[build-system]
+requires = ["setuptools>=63.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "mmconvert.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.paths]
+source = ["src"]

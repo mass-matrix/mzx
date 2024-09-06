@@ -1,0 +1,125 @@
+name: pytest
+
+on: [push]
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: System Dependencies
+        run: |
+          sudo apt install -y python3-dev python3-openssl libpq-dev
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sed -i '/msp/c\.\/msp' requirements.txt
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then uv pip install --system -r requirements-dev.txt; fi
+      - name: Lint with ruff
+        run: |
+          # Check all lint rules
+          ruff check .
+          # Check format
+          ruff format --check .
+  pytest:
+    needs: ["mypy", "ruff"]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: System Dependencies
+        run: |
+          sudo apt install -y python3-dev python3-openssl libpq-dev
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sed -i '/msp/c\.\/msp' requirements.txt
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then uv pip install --system -r requirements-dev.txt; fi
+      - name: Wait for PostgreSQL to start
+        run: |
+          until PGPASSWORD=postgres psql -h localhost -p 5423 -U postgres -d mm_test -c '\q'; do
+            echo "Waiting for PostgreSQL to start..."
+            sleep 5
+          done
+      - name: pytest
+        run: |
+          make test
+        env:
+          ENV: test
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  mypy:
+    needs: ruff
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: System Dependencies
+        run: |
+          sudo apt install -y python3-dev python3-openssl libpq-dev
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Clone msp
+        uses: actions/checkout@v4
+        with:
+          repository: mass-matrix/msp
+          token: ${{ secrets.GH_TOKEN }}
+          path: msp
+          ref: main
+      - name: Install dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sed -i '/msp/c\.\/msp' requirements.txt
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then uv pip install --system -r requirements-dev.txt; fi
+      - name: mypy
+        run: |
+          mypy --strict-optional --check-untyped-defs --disallow-incomplete-defs --warn-unused-configs --follow-imports=normal src/

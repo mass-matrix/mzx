@@ -1,0 +1,56 @@
+Metadata-Version: 2.1
+Name: mmconvert
+Version: 0.1.0
+Summary: Easy to use Mass Spec conversion utility
+Author-email: Michael Freitas <mike@massmatrix.bio>
+Maintainer-email: Herman Singh <herman@massmatrix.bio>, MassMatrix <eng@massmatrix.bio>
+License: MIT License
+Project-URL: Documentation, https://readthedocs.org/projects/mmconvert
+Project-URL: Source Code, https://github.com/mass-matrix/mm_convert
+Project-URL: Issue Tracker, https://github.com/mass-matrix/mm_convert/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: File Formats
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: loguru
+Requires-Dist: lxml
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Requires-Dist: pyteomics
+
+# mm_convert
+
+## Project Setup
+
+If you have uv installed, then you can a venv setup by running:
+
+```
+make setup
+```
+
+While making changes to mmconvert, you can install/uninstall it from your local
+
+```
+make install
+```
+
+```
+make uinstall
+```
+
+## Tests
+
+```
+make test
+```
