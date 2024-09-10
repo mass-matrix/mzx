@@ -1,5 +1,0 @@
-loguru
-lxml
-matplotlib
-numpy
-pyteomics

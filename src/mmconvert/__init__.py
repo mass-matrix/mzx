@@ -20,11 +20,12 @@ def run_cmd(cmd):
 
     output = ""
     while True:
-        line = p.stdout.readline()
-        if not line:
-            break
-        (logger.info(line.strip(), flush=True),)
-        output = output + line
+        if p.stdout:
+            line = p.stdout.readline()
+            if not line:
+                break
+            (logger.info(line.strip(), flush=True),)
+            output = output + line
 
     logger.info("Process Complete")
     return output
@@ -130,8 +131,8 @@ def waters_convert(file):
     else:
         logger.info("Found _extern.inf file.")
         # Read the _extern.inf file
-        extern_file = os.path.join(file, extern_file[0])
-        with open(extern_file, "r", encoding="utf8", errors="ignore") as f:
+        ex_file_path: str = os.path.join(file, extern_file[0])
+        with open(ex_file_path, "r", encoding="utf8", errors="ignore") as f:
             lines = f.readlines()
             # Identify the function file for the REFERENCE
 
@@ -156,7 +157,8 @@ def waters_convert(file):
             new_function_file = os.path.join(file, func_file + ".tmp")
 
     logger.info("Renaming lockmass function file")
-    os.rename(old_function_file, new_function_file)
+    if old_function_file and new_function_file:
+        os.rename(old_function_file, new_function_file)
     logger.info("Processing Waters file First Pass")
     outfile = msconvert(
         file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
@@ -180,8 +182,9 @@ def waters_convert(file):
 
     logger.info("Processing Waters file")
 
-    logger.info("Restoring lockmass function file")
-    os.rename(new_function_file, old_function_file)
+    if new_function_file and old_function_file:
+        logger.info("Restoring lockmass function file")
+        os.rename(new_function_file, old_function_file)
 
     return outfile
 

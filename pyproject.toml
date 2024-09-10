@@ -44,7 +44,7 @@ build-backend = "setuptools.build_meta"
 version = { attr = "mmconvert.__version__" }
 
 [tool.pytest.ini_options]
-testpaths = ["src/tests"]
+testpaths = ["tests"]
 filterwarnings = ["error"]
 
 [tool.coverage.run]
