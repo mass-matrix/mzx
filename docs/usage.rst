@@ -2,7 +2,7 @@
 Usage
 =====
 
-FastAPI Configuration
+mmconvert Usage
 ---------------------
 
 .. code-block:: console

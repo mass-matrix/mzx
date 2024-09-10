@@ -31,6 +31,41 @@ Installing
 
 Install and update using `pip`\:
 
-.. code-block:: text
+.. code-block:: console
 
         pip install -U mmconvert
+
+Usage
+-----
+
+.. code-block:: console
+
+        mmconvert --type mgf /path/to/data.mgf
+
+This will convert the `mgf` data to `mzml` by default.
+
+Developer setup
+---------------
+
+If you have uv installed, then you can a venv setup by running\:
+
+.. code-block:: console
+
+        make setup
+
+While making changes to mmconvert, you can install/uninstall it from your local
+
+.. code-block:: console
+
+        make install
+
+.. code-block:: console
+
+        make uninstall
+
+Tests
+-----
+
+.. code-block:: console
+
+        make test
