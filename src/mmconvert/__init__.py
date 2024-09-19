@@ -1,9 +1,9 @@
 __version__ = "0.1.0"
 
 import os
-import subprocess
 import re
 import shlex
+import subprocess
 
 from loguru import logger
 
@@ -256,7 +256,7 @@ def msconvert(
         outfile = base + ".mzML"
 
     logger.info(f"Output file: {outfile}")
-    params += f" --outfile /data/{outfile}"
+    params += f' --outfile "/data/{outfile}"'
 
     if index is False:
         params += " --noindex"
