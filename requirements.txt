@@ -42,3 +42,4 @@ sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
 typing-extensions==4.12.2
 urllib3==2.2.2
+pyside6

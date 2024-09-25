@@ -194,7 +194,7 @@ def convert_raw_file(file, vendor):
     Convert the raw file to mzML format based on the vendor.
     """
     logger.info(f"Converting {vendor} file: {file}")
-    match vendor:
+    match vendor.lower():
         case "thermo":
             outfile = msconvert(file)
             return outfile

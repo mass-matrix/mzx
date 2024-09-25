@@ -24,7 +24,7 @@ mmconvert
 .. image:: https://img.shields.io/pypi/dm/mmconvert
         :alt: PyPI - Downloads
 
-mmconvert is designed to work with mgf
+mmconvert is designed to work with raw, tdf
 
 Installing
 ----------

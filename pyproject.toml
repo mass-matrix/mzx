@@ -23,12 +23,13 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Chemistry",
   "Topic :: Software Development",
 ]
-requires-python = "~=3.12,>=3.10"
+#requires-python = "~=3.12,>=3.10"
 dependencies = ["loguru", "lxml", "matplotlib", "numpy", "pyteomics"]
 dynamic = ["version"]
 
 [project.scripts]
 mmconvert = "mmconvert.cli:main"
+mmconvert-gui = "mmconvert.gui:main"
 
 [project.urls]
 Documentation = "https://readthedocs.org/projects/mmconvert"
