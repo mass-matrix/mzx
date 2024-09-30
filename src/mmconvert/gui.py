@@ -65,10 +65,10 @@ class MainWindow(QMainWindow):
             return
 
         # get the folder of the file
-        folder = os.path.dirname(path)
+        _folder = os.path.dirname(path)
 
         # get the basename of the file without folder
-        basename = os.path.basename(path)
+        _basename = os.path.basename(path)
 
         # check if peakpicking is enabled
         peakpicking = self.peakpicking_checkbox.isChecked()
