@@ -41,6 +41,10 @@ Documentation = "https://readthedocs.org/projects/mmconvert"
 requires = ["setuptools>=63.0"]
 build-backend = "setuptools.build_meta"
 
+[[tool.mypy.overrides]]
+module = "PySide6.*"
+ignore_missing_imports = true
+
 [tool.setuptools.dynamic]
 version = { attr = "mmconvert.__version__" }
 
