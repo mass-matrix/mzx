@@ -47,19 +47,19 @@ class MainWindow(QMainWindow):
         self.log_text_edit.setReadOnly(True)
         self.layout.addWidget(self.log_text_edit)
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event: QDropEvent) -> None:
         if event.mimeData().hasUrls():
             event.accept()
         else:
             event.ignore()
 
-    def dropEvent(self, event: QDropEvent):
+    def dropEvent(self, event: QDropEvent) -> None:
         for url in event.mimeData().urls():
             path = url.toLocalFile()
             if os.path.isfile(path):
                 self.convert(path)
 
-    def convert(self, path):
+    def convert(self, path: str) -> None:
         if not self.is_docker_running():
             self.show_popup("Docker is not running. Please start Docker and try again.")
             return
@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
         #     self.log_text_edit.append(line)
         #     QApplication.processEvents()  # Update the GUI
 
-    def is_docker_running(self):
+    def is_docker_running(self) -> bool:
         try:
             subprocess.run(
                 ["docker", "info"],
@@ -119,7 +119,7 @@ class MainWindow(QMainWindow):
         except subprocess.CalledProcessError:
             return False
 
-    def show_popup(self, message):
+    def show_popup(self, message: str) -> None:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
         msg.setText(message)
