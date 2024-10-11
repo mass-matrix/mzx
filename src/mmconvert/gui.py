@@ -27,25 +27,28 @@ class MainWindow(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
-        self.layout = QVBoxLayout(self.central_widget)
+        layout = QVBoxLayout(self.central_widget)
 
         self.peakpicking_checkbox = QCheckBox("Enable Peakpicking", self)
-        self.layout.addWidget(self.peakpicking_checkbox)
+        layout.addWidget(self.peakpicking_checkbox)
 
         # Remove Zeros Options
         self.removezeros_checkbox = QCheckBox("Remove Zeros", self)
-        self.layout.addWidget(self.removezeros_checkbox)
+        layout.addWidget(self.removezeros_checkbox)
 
         # Create a blank panel at the bottom
-        self.blank_panel = QWidget(self)
-        self.blank_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.blank_panel.setMinimumHeight(self.height() // 2)
-        self.layout.addWidget(self.blank_panel)
+        blank_panel = QWidget(self)
+        blank_panel.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        blank_panel.setMinimumHeight(self.height() // 2)
+        layout.addWidget(blank_panel)
 
         # Log output
         self.log_text_edit = QTextEdit(self)
         self.log_text_edit.setReadOnly(True)
-        self.layout.addWidget(self.log_text_edit)
+        layout.addWidget(self.log_text_edit)
+        self._layout = layout
 
     def dragEnterEvent(self, event: QDropEvent) -> None:
         if event.mimeData().hasUrls():
@@ -121,10 +124,10 @@ class MainWindow(QMainWindow):
 
     def show_popup(self, message: str) -> None:
         msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
+        msg.setIcon(QMessageBox.Icon.Warning)
         msg.setText(message)
         msg.setWindowTitle("Warning")
-        msg.setStandardButtons(QMessageBox.Ok)
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg.exec()
 
 
