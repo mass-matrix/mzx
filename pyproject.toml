@@ -6,8 +6,8 @@ maintainers = [
 authors = [{ name = "Michael Freitas", email = "mike@massmatrix.bio" }]
 name = "mmconvert"
 description = "Easy to use Mass Spec conversion utility"
-readme = "README.md"
-license = { text = "MIT License" }
+readme = "README.rst"
+license = { file = "LICENSE" }
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -23,8 +23,16 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Chemistry",
   "Topic :: Software Development",
 ]
-#requires-python = "~=3.12,>=3.10"
-dependencies = ["loguru", "lxml", "matplotlib", "numpy", "pyteomics"]
+keywords = ["mass spectrometry", "conversion", "bioinformatics"]
+requires-python = ">=3.8"
+dependencies = [
+  "loguru>=0.5.0",
+  "lxml>=4.6.0",
+  "matplotlib>=3.0",
+  "numpy>=1.21",
+  "pyteomics>=4.0",
+  "pyside6>=6.0",
+]
 dynamic = ["version"]
 
 [project.scripts]
@@ -51,6 +59,7 @@ version = { attr = "mmconvert.__version__" }
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["error"]
+addopts = "--tb=short -v"
 
 [tool.coverage.run]
 branch = true
