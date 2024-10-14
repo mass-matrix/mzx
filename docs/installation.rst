@@ -8,13 +8,13 @@ Installation
 Stable release
 --------------
 
-To install mmconvert, run this command in your terminal:
+To install mzx, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install mmconvert
+    $ pip install mzx
 
-This is the preferred method to install mmconvert, as it will always install the most recent stable release.
+This is the preferred method to install mzx, as it will always install the most recent stable release.
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.
@@ -26,13 +26,13 @@ you through the process.
 From sources
 ------------
 
-The sources for mmconvert can be downloaded from the `Github repo`_.
+The sources for mzx can be downloaded from the `Github repo`_.
 
 You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git@github.com:mass-matrix/mmconvert.git
+    $ git clone git@github.com:mass-matrix/mzx.git
 
 
 Once you have a copy of the source, you can install it with:
@@ -42,4 +42,4 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/mass-matrix/mmconvert
+.. _Github repo: https://github.com/mass-matrix/mzx

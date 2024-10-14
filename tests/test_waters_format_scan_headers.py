@@ -1,4 +1,4 @@
-from src import mmconvert as mmc
+from src import mzx as mmc
 
 
 def test_modify_waters_scan_header():

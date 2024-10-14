@@ -1,13 +1,13 @@
-mmconvert package
+mzx package
 =================
 
 Submodules
 ----------
 
-mmconvert.cli module
+mzx.cli module
 --------------------
 
-.. automodule:: mmconvert.cli
+.. automodule:: mzx.cli
    :members:
    :undoc-members:
    :show-inheritance:
@@ -15,7 +15,7 @@ mmconvert.cli module
 Module contents
 ---------------
 
-.. automodule:: mmconvert
+.. automodule:: mzx
    :members:
    :undoc-members:
    :show-inheritance:

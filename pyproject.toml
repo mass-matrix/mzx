@@ -4,7 +4,7 @@ maintainers = [
   { name = "MassMatrix", email = "eng@massmatrix.bio" },
 ]
 authors = [{ name = "Michael Freitas", email = "mike@massmatrix.bio" }]
-name = "mmconvert"
+name = "mzx"
 description = "Easy to use Mass Spec conversion utility"
 readme = "README.rst"
 license = { file = "LICENSE" }
@@ -36,13 +36,13 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-mmconvert = "mmconvert.cli:main"
-mmconvert-gui = "mmconvert.gui:main"
+mzx = "mzx.cli:main"
+mzx-gui = "mzx.gui:main"
 
 [project.urls]
-Documentation = "https://readthedocs.org/projects/mmconvert"
-"Source Code" = "https://github.com/mass-matrix/mm_convert"
-"Issue Tracker" = "https://github.com/mass-matrix/mm_convert/issues"
+Documentation = "https://readthedocs.org/projects/mzx"
+"Source Code" = "https://github.com/mass-matrix/mzx"
+"Issue Tracker" = "https://github.com/mass-matrix/mzx/issues"
 
 
 [build-system]
@@ -54,7 +54,7 @@ module = "PySide6.*"
 ignore_missing_imports = true
 
 [tool.setuptools.dynamic]
-version = { attr = "mmconvert.__version__" }
+version = { attr = "mzx.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
