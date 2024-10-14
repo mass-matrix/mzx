@@ -1,30 +1,30 @@
 ===============================
-mmconvert
+mzx
 ===============================
         Free and open conversion of mass spec data
 
 .. _msconvert: https://proteowizard.sourceforge.io/
 
-.. image:: https://img.shields.io/pypi/v/mmconvert.svg
-        :target: https://pypi.python.org/pypi/mmconvert
+.. image:: https://img.shields.io/pypi/v/mzx.svg
+        :target: https://pypi.python.org/pypi/mzx
         :alt: PyPI
 
-.. image:: https://github.com/mass-matrix/mmconvert/actions/workflows/pytest.yml/badge.svg
-        :target: https://github.com/mass-matrix/mmconvert/actions/workflows/pytest.yml
+.. image:: https://github.com/mass-matrix/mzx/actions/workflows/pytest.yml/badge.svg
+        :target: https://github.com/mass-matrix/mzx/actions/workflows/pytest.yml
         :alt: GitHub Actions
 
-.. image:: https://readthedocs.org/projects/mmconvert/badge/?version=latest
-    :target: https://mmconvert.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/mzx/badge/?version=latest
+    :target: https://mzx.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-.. image:: https://codecov.io/gh/mass-matrix/mmconvert/graph/badge.svg?token=mrLdM9zX54
-        :target: https://codecov.io/gh/mass-matrix/mmconvert
+.. image:: https://codecov.io/gh/mass-matrix/mzx/graph/badge.svg?token=mrLdM9zX54
+        :target: https://codecov.io/gh/mass-matrix/mzx
         :alt: Codecov
 
-.. image:: https://img.shields.io/pypi/dm/mmconvert
+.. image:: https://img.shields.io/pypi/dm/mzx
         :alt: PyPI - Downloads
 
-mmconvert is designed to work with raw, tdf
+mzx is designed to work with raw, tdf
 
 Installing
 ----------
@@ -33,14 +33,14 @@ Install and update using `pip`\:
 
 .. code-block:: console
 
-        pip install -U mmconvert
+        pip install -U mzx
 
 Usage
 -----
 
 .. code-block:: console
 
-        mmconvert --type mgf /path/to/data.mgf
+        mzx --type mgf /path/to/data.mgf
 
 This will convert the `mgf` data to `mzml` by default.
 
@@ -53,7 +53,7 @@ If you have uv installed, then you can a venv setup by running\:
 
         make setup
 
-While making changes to mmconvert, you can install/uninstall it from your local
+While making changes to mzx, you can install/uninstall it from your local
 
 .. code-block:: console
 

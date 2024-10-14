@@ -2,13 +2,13 @@
 Usage
 =====
 
-mmconvert Usage
+mzx Usage
 ---------------------
 
 .. code-block:: console
 
-  mmconvert --type mgf /path/to/data.mgf
+  mzx --type mgf /path/to/data.mgf
 
 
 * Free software: MIT license
-* Documentation: https://mmconvert.readthedocs.io.
+* Documentation: https://mzx.readthedocs.io.

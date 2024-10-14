@@ -1,7 +1,7 @@
-mmconvert
+mzx
 =========
 
 .. toctree::
    :maxdepth: 4
 
-   mmconvert
+   mzx

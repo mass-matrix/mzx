@@ -1,4 +1,4 @@
-Welcome to mmconvert's documentation!
+Welcome to mzx's documentation!
 =======================================
 
 Contents:
