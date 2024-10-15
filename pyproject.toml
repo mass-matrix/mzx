@@ -53,6 +53,9 @@ build-backend = "setuptools.build_meta"
 module = "PySide6.*"
 ignore_missing_imports = true
 
+[tool.setuptools]
+package-dir = { "" = "src" }
+
 [tool.setuptools.dynamic]
 version = { attr = "mzx.__version__" }
 
