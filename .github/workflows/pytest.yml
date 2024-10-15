@@ -100,17 +100,9 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      - name: Clone msp
-        uses: actions/checkout@v4
-        with:
-          repository: mass-matrix/msp
-          token: ${{ secrets.GH_TOKEN }}
-          path: msp
-          ref: main
       - name: Install dependencies
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
-          sed -i '/msp/c\.\/msp' requirements.txt
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then uv pip install --system -r requirements-dev.txt; fi
