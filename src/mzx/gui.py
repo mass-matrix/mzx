@@ -2,6 +2,7 @@ import loguru
 import os
 import subprocess
 import sys
+from PySide6.QtCore import QSettings, QThread, Signal
 from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -22,19 +23,28 @@ class MainWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle(f"mzx Version {__version__}")
-        self.setGeometry(100, 100, 600, 400)
-
+        settings = QSettings("mzx", "app")
         self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-
         layout = QVBoxLayout(self.central_widget)
 
+        self.setWindowTitle(f"mzx Version {__version__}")
+        self.setCentralWidget(self.central_widget)
+
+        # Restore window geometry (position and size)
+        geometry = settings.value("window_geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+        else:
+            self.setGeometry(100, 100, 600, 400)
+
+        # Peak Picking Option
         self.peakpicking_checkbox = QCheckBox("Enable Peakpicking", self)
+        self.peakpicking_checkbox.setChecked(settings.value("peakpicking", False, bool))
         layout.addWidget(self.peakpicking_checkbox)
 
-        # Remove Zeros Options
+        # Remove Zeros Option
         self.removezeros_checkbox = QCheckBox("Remove Zeros", self)
+        self.removezeros_checkbox.setChecked(settings.value("removezeros", False, bool))
         layout.addWidget(self.removezeros_checkbox)
 
         # Create a blank panel at the bottom
@@ -50,6 +60,13 @@ class MainWindow(QMainWindow):
         self.log_text_edit.setReadOnly(True)
         layout.addWidget(self.log_text_edit)
         self._layout = layout
+
+    def closeEvent(self, event):
+        settings = QSettings("mzx", "app")
+        settings.setValue("window_geometry", self.saveGeometry())
+        settings.setValue("peakpicking", self.peakpicking_checkbox.isChecked())
+        settings.setValue("removezeros", self.removezeros_checkbox.isChecked())
+        super().closeEvent(event)
 
     def dragEnterEvent(self, event: QDropEvent) -> None:
         if event.mimeData().hasUrls():
