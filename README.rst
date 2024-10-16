@@ -24,10 +24,14 @@ mzx
 .. image:: https://img.shields.io/pypi/dm/mzx
         :alt: PyPI - Downloads
 
-mzx is designed to work with raw, tdf
 
 Installing
 ----------
+
+System Requirements:
+* Docker
+* Python3.8+ (lower versions may work, but are not currently tested)
+* Your favorite Python package manager (uv, pip, poetry, ...)
 
 Install and update using `pip`\:
 
@@ -38,11 +42,45 @@ Install and update using `pip`\:
 Usage
 -----
 
+To run the cli command:
+
 .. code-block:: console
 
         mzx --type mgf /path/to/data.mgf
 
 This will convert the `mgf` data to `mzml` by default.
+
+To run the gui:
+
+.. code-block:: console
+
+        mzx-gui
+
+Note: The gui is experimental
+
+Vendor Support
+--------------
+
+mzx utilizes proteowizard, and supports the following vendors: Agilent, Bruker, Sciex, Shimadzu, Thermo, and UIMF.
+
+For more information, please see the [proteowizard FAQ](https://proteowizard.sourceforge.io/faq.html)
+
+Supported File Formats
+----------------------
+* .mgf
+* .mzML
+* .raw (Thermo)
+* .wiff (Sciex)
+
+Features
+--------
+* Convert between various mass spectrometry file formats
+* Supports vendor formats: Agilent, Bruker, Sciex, etc.
+* CLI and experimental GUI for ease of use
+
+Documentation
+-------------
+Full documentation is available at `mzx.readthedocs.io <https://mzx.readthedocs.io/en/latest>`_
 
 Developer setup
 ---------------
