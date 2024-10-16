@@ -111,6 +111,7 @@ class MainWindow(QMainWindow):
 
         peakpicking = self.peakpicking_checkbox.isChecked()
         removezeros = self.removezeros_checkbox.isChecked()
+        self.log_text_edit.append(f"Launching thread to convert {path}...")
         self.thread = ConverterThread(path, peakpicking, removezeros)
         self.thread.output_signal.connect(self.log_text_edit.append)
         self.thread.start()
