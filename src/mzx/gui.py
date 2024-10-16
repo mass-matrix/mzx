@@ -1,7 +1,7 @@
 import os
 import sys
-from PySide6.QtCore import QSettings, QThread, Signal
-from PySide6.QtGui import QDropEvent
+from PySide6.QtCore import QByteArray, QSettings, QThread
+from PySide6.QtGui import QDropEvent, QDragLeaveEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -16,10 +16,9 @@ from . import convert_raw_file, docker, get_vendor, __version__
 
 
 class ConverterThread(QThread):
-    output_signal = Signal(str)
-
-    def __init__(self, path, peakpicking, removezeros, parent=None):
+    def __init__(self, path, peakpicking, removezeros, emit_fn, parent=None):
         super().__init__(parent)
+        self.emit_fn = emit_fn
         self.path = path
         self.peakpicking = peakpicking
         self.removezeros = removezeros
@@ -32,7 +31,7 @@ class ConverterThread(QThread):
     def run(self):
         vendor = get_vendor(self.path)
         _outfile = convert_raw_file(self.path, vendor)
-        self.output_signal.emit(f"Conversion completed: {_outfile}")
+        self.emit_fn.emit(f"Conversion completed: {_outfile}")
 
 
 class MainWindow(QMainWindow):
@@ -50,19 +49,21 @@ class MainWindow(QMainWindow):
 
         # Restore window geometry (position and size)
         geometry = settings.value("window_geometry")
-        if geometry:
+        if geometry and isinstance(geometry, QByteArray):
             self.restoreGeometry(geometry)
         else:
             self.setGeometry(100, 100, 600, 400)
 
         # Peak Picking Option
         self.peakpicking_checkbox = QCheckBox("Enable Peakpicking", self)
-        self.peakpicking_checkbox.setChecked(settings.value("peakpicking", False, bool))
+        peak_picking = bool(settings.value("peakpicking", False, bool))
+        self.peakpicking_checkbox.setChecked(peak_picking)
         layout.addWidget(self.peakpicking_checkbox)
 
         # Remove Zeros Option
         self.removezeros_checkbox = QCheckBox("Remove Zeros", self)
-        self.removezeros_checkbox.setChecked(settings.value("removezeros", False, bool))
+        remove_zeros = bool(settings.value("removezeros", False, bool))
+        self.removezeros_checkbox.setChecked(remove_zeros)
         layout.addWidget(self.removezeros_checkbox)
 
         # Create a blank panel at the bottom
@@ -93,7 +94,7 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
 
-    def dragLeaveEvent(self, event: QDropEvent) -> None:
+    def dragLeaveEvent(self, _event: QDragLeaveEvent) -> None:
         self.setStyleSheet("")  # Reset background color on leave
 
     def dropEvent(self, event: QDropEvent) -> None:
@@ -112,9 +113,10 @@ class MainWindow(QMainWindow):
         peakpicking = self.peakpicking_checkbox.isChecked()
         removezeros = self.removezeros_checkbox.isChecked()
         self.log_text_edit.append(f"Launching thread to convert {path}...")
-        self.thread = ConverterThread(path, peakpicking, removezeros)
-        self.thread.output_signal.connect(self.log_text_edit.append)
-        self.thread.start()
+        self.convert_thread = ConverterThread(
+            path, peakpicking, removezeros, self.log_text_edit.append
+        )
+        self.convert_thread.start()
 
     def show_popup(self, message: str) -> QMessageBox:
         dialog = QMessageBox()
