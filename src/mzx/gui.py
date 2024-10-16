@@ -1,20 +1,38 @@
-import loguru
 import os
-import subprocess
 import sys
 from PySide6.QtCore import QSettings, QThread, Signal
 from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QMainWindow,
     QMessageBox,
+    QSizePolicy,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
-    QCheckBox,
-    QTextEdit,
-    QSizePolicy,
 )
-from . import convert_raw_file, get_vendor, __version__
+from . import convert_raw_file, docker, get_vendor, __version__
+
+
+class ConverterThread(QThread):
+    output_signal = Signal(str)
+
+    def __init__(self, path, peakpicking, removezeros, parent=None):
+        super().__init__(parent)
+        self.path = path
+        self.peakpicking = peakpicking
+        self.removezeros = removezeros
+
+    def options(self) -> str:
+        options = ' --filter "peakPicking true 1-"' if self.peakpicking else ""
+        options += ' --filter "zeroSamples removeExtra"' if self.removezeros else ""
+        return options
+
+    def run(self):
+        vendor = get_vendor(self.path)
+        _outfile = convert_raw_file(self.path, vendor)
+        self.output_signal.emit(f"Conversion completed: {_outfile}")
 
 
 class MainWindow(QMainWindow):
@@ -86,68 +104,16 @@ class MainWindow(QMainWindow):
                 self.convert(path)
 
     def convert(self, path: str) -> None:
-        if not self.is_docker_running():
-            dialog = self.show_popup(
-                "Docker is not running. Please start Docker and try again."
-            )
-            dialog.close()
-            self.close()
+        if not docker.check_running():
+            self.show_popup("Docker is not running. Please start Docker and try again.")
+            self.log_text_edit.append("Docker is not running. Conversion cancelled.")
+            return
 
-        # get the folder of the file
-        _folder = os.path.dirname(path)
-
-        # get the basename of the file without folder
-        _basename = os.path.basename(path)
-
-        # check if peakpicking is enabled
         peakpicking = self.peakpicking_checkbox.isChecked()
         removezeros = self.removezeros_checkbox.isChecked()
-
-        options = ""
-        options += ' --filter "peakPicking true 1-"' if peakpicking else ""
-        options += ' --filter "zeroSamples removeExtra"' if removezeros else ""
-
-        # call the command to convert the file with the output file as parameter
-        # command = f"docker run --rm -v {folder}:/data chambm/pwiz-skyline-i-agree-to-the-vendor-licenses:latest wine msconvert {basename} {options}"
-        vendor = get_vendor(path)
-        _outfile = convert_raw_file(path, vendor)
-
-        # process = subprocess.Popen(
-        #     command,
-        #     shell=True,
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.PIPE,
-        #     text=True,
-        #     bufsize=1,
-        # )
-        # # Read the output line by line
-        # for line in process.stdout:
-        #     line = line.strip()
-        #     if line == "":
-        #         continue
-        #     self.log_text_edit.append(line)
-        #     QApplication.processEvents()  # Update the GUI
-
-        # # Read the error output line by line
-        # for line in process.stderr:
-        #     line = line.strip()
-        #     if line == "":
-        #         continue
-        #     self.log_text_edit.append(line)
-        #     QApplication.processEvents()  # Update the GUI
-
-    def is_docker_running(self) -> bool:
-        try:
-            subprocess.run(
-                ["docker", "info"],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            return True
-        except subprocess.CalledProcessError as e:
-            loguru.logger.exception(e)
-            return False
+        self.thread = ConverterThread(path, peakpicking, removezeros)
+        self.thread.output_signal.connect(self.log_text_edit.append)
+        self.thread.start()
 
     def show_popup(self, message: str) -> QMessageBox:
         dialog = QMessageBox()
