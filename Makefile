@@ -58,6 +58,9 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html
 
+format:
+	ruff format .
+
 help:
 	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
@@ -66,6 +69,9 @@ install:
 
 lint:
 	ruff check .
+
+lint-fix:
+	ruff check --fix .
 
 mypy:
 	mypy --strict-optional --check-untyped-defs --disallow-incomplete-defs --warn-unused-configs --follow-imports=normal src/
