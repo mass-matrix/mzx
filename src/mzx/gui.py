@@ -1,3 +1,4 @@
+import loguru
 import os
 import subprocess
 import sys
@@ -12,7 +13,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QSizePolicy,
 )
-from . import convert_raw_file, get_vendor
+from . import convert_raw_file, get_vendor, __version__
 
 
 class MainWindow(QMainWindow):
@@ -21,7 +22,7 @@ class MainWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("EZConvert")
+        self.setWindowTitle(f"mzx Version {__version__}")
         self.setGeometry(100, 100, 600, 400)
 
         self.central_widget = QWidget()
@@ -64,8 +65,11 @@ class MainWindow(QMainWindow):
 
     def convert(self, path: str) -> None:
         if not self.is_docker_running():
-            self.show_popup("Docker is not running. Please start Docker and try again.")
-            return
+            dialog = self.show_popup(
+                "Docker is not running. Please start Docker and try again."
+            )
+            dialog.close()
+            self.close()
 
         # get the folder of the file
         _folder = os.path.dirname(path)
@@ -119,16 +123,18 @@ class MainWindow(QMainWindow):
                 stderr=subprocess.PIPE,
             )
             return True
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            loguru.logger.exception(e)
             return False
 
-    def show_popup(self, message: str) -> None:
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Icon.Warning)
-        msg.setText(message)
-        msg.setWindowTitle("Warning")
-        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg.exec()
+    def show_popup(self, message: str) -> QMessageBox:
+        dialog = QMessageBox()
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setText(message)
+        dialog.setWindowTitle("Warning")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dialog.show()
+        return dialog
 
 
 def main():
