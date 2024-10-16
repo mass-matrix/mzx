@@ -71,10 +71,15 @@ class MainWindow(QMainWindow):
     def dragEnterEvent(self, event: QDropEvent) -> None:
         if event.mimeData().hasUrls():
             event.accept()
+            self.setStyleSheet("background-color: lightgreen;")
         else:
             event.ignore()
 
+    def dragLeaveEvent(self, event: QDropEvent) -> None:
+        self.setStyleSheet("")  # Reset background color on leave
+
     def dropEvent(self, event: QDropEvent) -> None:
+        self.setStyleSheet("")  # Reset background color after drop
         for url in event.mimeData().urls():
             path = url.toLocalFile()
             if os.path.isfile(path):
