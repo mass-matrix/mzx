@@ -1,6 +1,6 @@
 import os
 import sys
-from PySide6.QtCore import QByteArray, QSettings, QThread
+from PySide6.QtCore import QByteArray, QSettings, QThread, Signal
 from PySide6.QtGui import QDropEvent, QDragLeaveEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -16,9 +16,16 @@ from . import convert_raw_file, docker, get_vendor, __version__
 
 
 class ConverterThread(QThread):
-    def __init__(self, path, peakpicking, removezeros, emit_fn, parent=None):
+    finished = Signal()  # Explicitly declare signal to satisfy mypy
+
+    def __init__(
+        self,
+        path: str,
+        peakpicking: bool,
+        removezeros: bool,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
-        self.emit_fn = emit_fn
         self.path = path
         self.peakpicking = peakpicking
         self.removezeros = removezeros
@@ -31,7 +38,7 @@ class ConverterThread(QThread):
     def run(self):
         vendor = get_vendor(self.path)
         _outfile = convert_raw_file(self.path, vendor)
-        self.emit_fn.emit(f"Conversion completed: {_outfile}")
+        # Emit finished signal automatically when the thread ends
 
 
 class MainWindow(QMainWindow):
@@ -113,10 +120,15 @@ class MainWindow(QMainWindow):
         peakpicking = self.peakpicking_checkbox.isChecked()
         removezeros = self.removezeros_checkbox.isChecked()
         self.log_text_edit.append(f"Launching thread to convert {path}...")
-        self.convert_thread = ConverterThread(
-            path, peakpicking, removezeros, self.log_text_edit.append
-        )
+
+        # Create thread and connect its finished signal to a logging method
+        self.convert_thread = ConverterThread(path, peakpicking, removezeros)
+        self.convert_thread.finished.connect(self.on_conversion_complete)
         self.convert_thread.start()
+
+    def on_conversion_complete(self):
+        """Slot that runs when the conversion thread finishes."""
+        self.log_text_edit.append("Conversion task completed.")
 
     def show_popup(self, message: str) -> QMessageBox:
         dialog = QMessageBox()
