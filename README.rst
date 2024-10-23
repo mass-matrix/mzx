@@ -30,7 +30,7 @@ Installing
 
 System Requirements:
 * Docker
-* Python3.8+ (lower versions may work, but are not currently tested)
+* Python3.10+ (Contains :ref:`PEP 636 <https://peps.python.org/pep-0636/>`_ )
 * Your favorite Python package manager (uv, pip, poetry, ...)
 
 Install and update using `pip`\:
