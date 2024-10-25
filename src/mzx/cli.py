@@ -14,3 +14,7 @@ def main():
 
     vendor = get_vendor(infile)
     _outfile = convert_raw_file(infile, vendor)
+
+
+if __name__ == "__main__":
+    main()

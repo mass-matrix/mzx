@@ -58,6 +58,16 @@ To run the gui:
 
 Note: The gui is experimental
 
+You can also call the command from the module itself:
+
+.. code-block:: console
+
+        python -m mzx.cli /path/to/data.raw
+
+.. code-block:: console
+
+        python -m mzx.gui
+
 Vendor Support
 --------------
 
