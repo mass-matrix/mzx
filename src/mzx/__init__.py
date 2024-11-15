@@ -116,7 +116,7 @@ def process_waters_scan_headers(file_path):
         file.writelines(modified_lines)
 
 
-def waters_convert(file):
+def waters_convert(file, two_pass=False):
     """
     Convert Waters raw file to mzML format.
     """
@@ -160,28 +160,37 @@ def waters_convert(file):
     logger.info("Renaming lockmass function file")
     if old_function_file and new_function_file:
         os.rename(old_function_file, new_function_file)
-    logger.info("Processing Waters file First Pass")
-    outfile = msconvert(
-        file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
-    )
-    outfile_temp = os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
-    os.rename(outfile, outfile_temp)
 
-    logger.info("Processing Waters scan headers")
-    process_waters_scan_headers(outfile_temp)
+    if two_pass == True:
+        logger.info("Processing Waters file First Pass")
+        outfile = msconvert(
+            file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
+        )
+        outfile_temp = (
+            os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
+        )
 
-    logger.info("Processing Waters mzML (adding index)")
-    outfile = msconvert(
-        outfile_temp,
-        outfile=outfile,
-        index=True,
-        peak_picking=True,
-        remove_zeros=True,
-    )
+        os.rename(outfile, outfile_temp)
 
-    # os.remove(outfile_temp)
+        logger.info("Processing Waters scan headers")
+        process_waters_scan_headers(outfile_temp)
 
-    logger.info("Processing Waters file")
+        logger.info("Processing Waters mzML (adding index)")
+        outfile = msconvert(
+            outfile_temp,
+            outfile=outfile,
+            index=True,
+            peak_picking=True,
+            remove_zeros=True,
+        )
+
+        # os.remove(outfile_temp)
+
+    else:
+        logger.info("Processing Waters file")
+        outfile = msconvert(
+            file, index=True, sortbyscan=True, peak_picking=True, remove_zeros=True
+        )
 
     if new_function_file and old_function_file:
         logger.info("Restoring lockmass function file")
