@@ -104,7 +104,8 @@ def process_waters_scan_headers(file_path):
     """
     Process the Waters scan headers in the given file.
     """
-    with open(file_path, "r") as file:
+    # TODO address UTF8 encoding issue
+    with open(file_path, encoding="utf8", errors="ignore") as file:
         lines = file.readlines()
 
     modified_lines = []
@@ -261,11 +262,11 @@ def msconvert(
     if index is False:
         params += " --noindex"
 
-    if sortbyscan is True:
-        params += " --filter 'sortByScanTime'"
-
     if peak_picking is True:
         params += " --filter 'peakPicking true 1-'"
+
+    if sortbyscan is True:
+        params += " --filter 'sortByScanTime'"
 
     if remove_zeros is True:
         params += " --filter 'zeroSamples removeExtra'"
