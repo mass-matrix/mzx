@@ -2,6 +2,15 @@
 History
 =======
 
+0.2.2 (2024-11-15)
+------------------
+
+* Mzx fix by @mafreitas in https://github.com/mass-matrix/mzx/pull/16
+* Fixes a bug where Waters file encoding causes an error
+* @mafreitas made their first contribution in https://github.com/mass-matrix/mzx/pull/16
+
+**Full Changelog**: https://github.com/mass-matrix/mzx/compare/0.2.1...0.2.2
+
 0.2.1 (2024-10-23)
 ------------------
 
