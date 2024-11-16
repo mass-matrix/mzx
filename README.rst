@@ -3,8 +3,6 @@ mzx
 ===============================
         Free and open conversion of mass spec data
 
-.. _msconvert: https://proteowizard.sourceforge.io/
-
 .. image:: https://img.shields.io/pypi/v/mzx.svg
         :target: https://pypi.python.org/pypi/mzx
         :alt: PyPI
@@ -29,8 +27,9 @@ Installing
 ----------
 
 System Requirements:
+
 * Docker
-* Python3.10+ (Contains :ref:`PEP 636 <https://peps.python.org/pep-0636/>`_ )
+* Python3.10+ (Contains `PEP 636 <https://peps.python.org/pep-0636/>`_ )
 * Your favorite Python package manager (uv, pip, poetry, ...)
 
 Install and update using `pip`\:
@@ -73,7 +72,7 @@ Vendor Support
 
 mzx utilizes proteowizard, and supports the following vendors: Agilent, Bruker, Sciex, Shimadzu, Thermo, and UIMF.
 
-For more information, please see the [proteowizard FAQ](https://proteowizard.sourceforge.io/faq.html)
+For more information, please see the `proteowizard FAQ <https://proteowizard.sourceforge.io/faq.html>`
 
 Supported File Formats
 ----------------------
