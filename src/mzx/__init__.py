@@ -184,17 +184,31 @@ def waters_convert(file, two_pass=False):
             remove_zeros=True,
         )
 
-        # os.remove(outfile_temp)
+        os.remove(outfile_temp)
+        if new_function_file and old_function_file:
+            logger.info("Restoring lockmass function file")
+            os.rename(new_function_file, old_function_file)
 
     else:
+        if new_function_file and old_function_file:
+            logger.info("Restoring lockmass function file")
+            os.rename(new_function_file, old_function_file)
+
         logger.info("Processing Waters file")
+
+        logger.info("Processing Waters file First Pass")
+
         outfile = msconvert(
-            file, index=True, sortbyscan=True, peak_picking=True, remove_zeros=True
+            file,
+            index=True,
+            sortbyscan=True,
+            peak_picking=True,
+            remove_zeros=True,
+            lockmass=True,
+            lockmass_value=554.2615,
         )
 
-    if new_function_file and old_function_file:
-        logger.info("Restoring lockmass function file")
-        os.rename(new_function_file, old_function_file)
+        process_waters_scan_headers(outfile)
 
     return outfile
 
@@ -235,6 +249,8 @@ def msconvert(
     sortbyscan=False,
     peak_picking=True,
     remove_zeros=True,
+    lockmass=False,
+    lockmass_value=None,
 ):
     """
     Converts the given file to the mzML format using the msconvert tool.
@@ -270,6 +286,13 @@ def msconvert(
 
     if index is False:
         params += " --noindex"
+
+    if lockmass is True:
+        if lockmass_value is not None:
+            params += f" --filter 'lockmassRefiner mz=556.2771 mzNegIons=554.2615'"
+        else:
+            logger.error("Lockmass value not provided. Ignoring lockmass.")
+            lockmass = False
 
     if peak_picking is True:
         params += " --filter 'peakPicking true 1-'"
