@@ -1,4 +1,4 @@
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 import os
 import re
@@ -125,6 +125,7 @@ def waters_convert(file, two_pass=False):
     # get the list of files in the directory
     files = os.listdir(file)
     # Test if _extern.inf file is present
+
     extern_file = [f for f in files if "_extern.inf" in f]
     if not extern_file:
         logger.error("Could not find _extern.inf file.")
@@ -133,7 +134,7 @@ def waters_convert(file, two_pass=False):
         logger.info("Found _extern.inf file.")
         # Read the _extern.inf file
         ex_file_path: str = os.path.join(file, extern_file[0])
-        with open(ex_file_path, "r", encoding="utf8", errors="ignore") as f:
+        with open(ex_file_path, "r", encoding="latin-1", errors="strict") as f:
             lines = f.readlines()
             # Identify the function file for the REFERENCE
 
@@ -161,7 +162,7 @@ def waters_convert(file, two_pass=False):
     if old_function_file and new_function_file:
         os.rename(old_function_file, new_function_file)
 
-    if two_pass == True:
+    if two_pass:
         logger.info("Processing Waters file First Pass")
         outfile = msconvert(
             file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
