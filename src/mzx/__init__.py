@@ -73,7 +73,7 @@ def format_function_number(s):
     match = re.search(r"Function (\d+)", s)
     if match:
         function_number = int(match.group(1))
-        return f"_FUNC{function_number:03d}"
+        return f"_FUNC{function_number:03d}", function_number
     else:
         return None
 
@@ -140,61 +140,61 @@ def waters_convert(file, two_pass=False):
 
             for line in lines:
                 if "REFERENCE" in line:
-                    function_string = format_function_number(line)
+                    function_string, function_number = format_function_number(line)
 
-                    logger.info(f"Reference found: {function_string}")
+                    logger.info(f"Lockmass Reference found: {function_string}")
                     break
 
-    # Identify the function files
+    # print(two_pass)
+    # if two_pass:
+    #     # Identify the function files
+    #     func_files = [f for f in files if "_FUNC" in f]
 
-    func_files = [f for f in files if "_FUNC" in f]
-    old_function_file = None
-    old_function_file = None
-    for func_file in func_files:
-        if function_string in func_file and (
-            ".dat" in func_file or ".DAT" in func_file
-        ):
-            logger.info(f"Function file found: {func_file}")
-            old_function_file = os.path.join(file, func_file)
-            new_function_file = os.path.join(file, func_file + ".tmp")
+    #     old_function_file = None
+    #     old_function_file = None
+    #     for func_file in func_files:
+    #         if function_string in func_file and (
+    #             ".dat" in func_file or ".DAT" in func_file
+    #         ):
+    #             logger.info(f"Function file found: {func_file}")
+    #             old_function_file = os.path.join(file, func_file)
+    #             new_function_file = os.path.join(file, func_file + ".tmp")
 
-    logger.info("Renaming lockmass function file")
-    if old_function_file and new_function_file:
-        os.rename(old_function_file, new_function_file)
+    #     logger.info("Renaming lockmass function file")
+    #     if old_function_file and new_function_file:
+    #         os.rename(old_function_file, new_function_file)
 
-    if two_pass:
-        logger.info("Processing Waters file First Pass")
-        outfile = msconvert(
-            file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
-        )
-        outfile_temp = (
-            os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
-        )
+    #     logger.info("Processing Waters file First Pass")
+    #     outfile = msconvert(
+    #         file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
+    #     )
+    #     outfile_temp = (
+    #         os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
+    #     )
 
-        os.rename(outfile, outfile_temp)
+    #     os.rename(outfile, outfile_temp)
 
-        logger.info("Processing Waters scan headers")
-        process_waters_scan_headers(outfile_temp)
+    #     logger.info("Processing Waters scan headers")
+    #     process_waters_scan_headers(outfile_temp)
 
-        logger.info("Processing Waters mzML (adding index)")
-        outfile = msconvert(
-            outfile_temp,
-            outfile=outfile,
-            index=True,
-            peak_picking=True,
-            remove_zeros=True,
-        )
+    #     logger.info("Processing Waters mzML (adding index)")
+    #     outfile = msconvert(
+    #         outfile_temp,
+    #         outfile=outfile,
+    #         index=True,
+    #         peak_picking=True,
+    #         scan_event=
+    #         remove_zeros=True,
+    #     )
 
-        os.remove(outfile_temp)
-        if new_function_file and old_function_file:
-            logger.info("Restoring lockmass function file")
-            os.rename(new_function_file, old_function_file)
+    #     os.remove(outfile_temp)
+    #     if new_function_file and old_function_file:
+    #         logger.info("Restoring lockmass function file")
+    #         os.rename(new_function_file, old_function_file)
 
-    else:
-        if new_function_file and old_function_file:
-            logger.info("Restoring lockmass function file")
-            os.rename(new_function_file, old_function_file)
+    # else:
 
+    if True:
         logger.info("Processing Waters file")
 
         logger.info("Processing Waters file First Pass")
@@ -205,6 +205,7 @@ def waters_convert(file, two_pass=False):
             sortbyscan=True,
             peak_picking=True,
             remove_zeros=True,
+            scan_event=function_number,
             lockmass=True,
             lockmass_value=554.2615,
         )
@@ -247,11 +248,12 @@ def msconvert(
     outfile=None,
     type="mzml",
     index=True,
-    sortbyscan=False,
-    peak_picking=True,
-    remove_zeros=True,
+    scan_event=None,
     lockmass=False,
     lockmass_value=None,
+    peak_picking=True,
+    remove_zeros=True,
+    sortbyscan=False,
 ):
     """
     Converts the given file to the mzML format using the msconvert tool.
@@ -297,6 +299,9 @@ def msconvert(
 
     if peak_picking is True:
         params += " --filter 'peakPicking true 1-'"
+
+    if scan_event is not None:
+        params += f" --filter 'scanEvent  1-{scan_event-1} {scan_event+1}-'"
 
     if sortbyscan is True:
         params += " --filter 'sortByScanTime'"
