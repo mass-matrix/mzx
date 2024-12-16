@@ -210,7 +210,7 @@ def waters_convert(file, two_pass=False):
     Convert Waters raw file to mzML format.
     """
     logger.info(f"Converting Waters file: {file}")
-
+    lockmass = False
     # get the list of files in the directory
     files = os.listdir(file)
     path = Path(file)
@@ -265,11 +265,19 @@ def waters_convert(file, two_pass=False):
             # Identify the function file for the REFERENCE
 
             for line in lines:
+                line = line.strip()
+
                 if "REFERENCE" in line:
                     function_string, function_number = format_function_number(line)
-
                     logger.info(f"Lockmass Reference found: {function_string}")
-                    break
+                elif "ReferenceMass" in line:
+                    # get the lockmass value from a line formatted like this "ReferenceMass1	1,554.2620221"
+                    # TODO check if the lockmass is a single value or multiple value
+                    lockmass_value = float(line.split("\t")[1].split(",")[1])
+                    lockmass = True
+                    logger.info(f"Lockmass value: {lockmass_value}")
+
+    
 
     # print(two_pass)
     # if two_pass:
@@ -320,23 +328,22 @@ def waters_convert(file, two_pass=False):
 
     # else:
 
-    if True:
-        logger.info("Processing Waters file")
+    logger.info("Processing Waters file")
 
-        logger.info("Processing Waters file First Pass")
+    logger.info("Processing Waters file First Pass")
 
-        outfile = msconvert(
-            file,
-            index=True,
-            sortbyscan=True,
-            peak_picking=True,
-            remove_zeros=True,
-            scan_event=function_number,
-            lockmass=True,
-            lockmass_value=554.2615,
-        )
+    outfile = msconvert(
+        file,
+        index=True,
+        sortbyscan=True,
+        peak_picking=True,
+        remove_zeros=True,
+        scan_event=function_number,
+        lockmass=True,
+        lockmass_value=lockmass_value,
+    )
 
-        process_waters_scan_headers(outfile)
+    process_waters_scan_headers(outfile)
 
     return outfile
 
@@ -416,15 +423,18 @@ def msconvert(
     if index is False:
         params += " --noindex"
 
-    if lockmass is True:
-        if lockmass_value is not None:
-            params += f" --filter 'lockmassRefiner mz=556.2771 mzNegIons=554.2615'"
-        else:
-            logger.error("Lockmass value not provided. Ignoring lockmass.")
-            lockmass = False
 
     if peak_picking is True:
-        params += " --filter 'peakPicking true 1-'"
+        params += " --filter 'peakPicking true 2-'"
+
+    if lockmass is True:
+        if int(lockmass_value) in [ 554 , 556 ]:
+            logger.info(f"Lockmass value recognized LeuEnk: {lockmass_value}")
+            params += f" --filter 'lockmassRefiner mz=556.2771 mzNegIons=554.2615'"
+        else:
+            logger.error("Lockmass value not provided or not know. Ignoring lockmass.")
+            lockmass = False
+
 
     if scan_event is not None:
         params += f" --filter 'scanEvent  1-{scan_event-1} {scan_event+1}-'"
