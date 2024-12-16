@@ -116,6 +116,95 @@ def process_waters_scan_headers(file_path):
         file.writelines(modified_lines)
 
 
+import numpy as np
+
+
+def parse_chroinf(path):
+    """
+    Parses a Waters _CHROMS.INF file.
+
+    Retrieves the name and unit for each analog data file. 
+
+    Args:
+        path (str): Path to the _CHROMS.INF file. 
+    
+    Returns:
+        List of string lists that contain the name and unit (if it exists) \
+            of the data in each analog file. 
+
+    """
+
+    analog_info = []
+    with open(path, "r") as f:
+
+        # header = re.sub(r"[\0-\x04]|\$CC\$|\([0-9]*\)", "", f.read(0x55)).strip()
+        # print(header)
+
+        f.seek(0x84)  # start offset
+        while f.tell() < os.path.getsize(path):
+            read_tmp = f.read(0x55)
+
+            line = re.sub(r"[\0-\x04]|\$CC\$|\([0-9]*\)", "", read_tmp).strip()
+
+            split = line.split(",")
+            print(split)
+            info = []
+            info.append(split[0])  # name
+            if len(split) == 6:
+                info.append(split[5])  # unit
+            analog_info.append(info)
+
+    return analog_info
+
+
+def parse_chrodat(path):
+    """
+    Parses a Waters _CHRO .DAT file.
+
+    These files may contain data for CAD, ELSD, or UV channels. \
+        They may also contain other miscellaneous data like system pressure.
+    
+    IMPORTANT: MassLynx classifies these files as "analog" data, but \
+        a DataDirectory will not treat CAD, ELSD, or UV channels as analog. \
+        Instead, those channels will be mapped to their detector.
+
+    Learn more about this file format :ref:`here <chrodat>`.
+
+    Args:
+        path (str): Path to the _CHRO .DAT file. 
+        name (str): Name of the analog data.
+        units (str, optional): Units of the analog data.
+    
+    Returns:
+        DataFile with analog data, if the file can be parsed. Otherwise, None.
+
+    """
+    data_start = 0x80
+
+    num_times = (os.path.getsize(path) - data_start) // 8
+    if num_times == 0:
+        return None
+
+    with open(path, "rb") as f:
+        raw_bytes = f.read()
+    times = np.ndarray(num_times, "<f", raw_bytes, data_start, 8)
+    # print(times)
+    vals = np.ndarray(num_times, "<f", raw_bytes, data_start + 4, 8)
+
+    return times, vals
+
+
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
+
+import csv
+
+import sys
+from pathlib import Path
+import re
+
+
 def waters_convert(file, two_pass=False):
     """
     Convert Waters raw file to mzML format.
@@ -124,9 +213,46 @@ def waters_convert(file, two_pass=False):
 
     # get the list of files in the directory
     files = os.listdir(file)
+    path = Path(file)
+    parent_path = path.parent.absolute()
     # Test if _extern.inf file is present
 
-    extern_file = [f for f in files if "_extern.inf" in f]
+    for f in files:
+
+        if "_chroms.inf" == f.lower():
+            print(f)
+            analog_info = parse_chroinf(os.path.join(file, f))
+            print(analog_info)
+
+    pattern = r"_chro(\d+)"
+
+    for f in files:
+        f_base, f_ext = os.path.splitext(f)
+
+        if "chro" in f_base.lower():
+            match = re.match(pattern, f_base)
+            if match:
+                # Extract and print the number
+                number = int(match.group(1))
+                print(f"File: {f} -> Number: {number}")
+
+            print(f)
+            if f_ext.lower() == ".dat":
+                x, y = parse_chrodat(os.path.join(file, f))
+                # pp.pprint([x, y])
+
+                new_list = zip(x.tolist(), y.tolist())
+
+                csv_filename = (
+                    f"{os.path.join(parent_path,analog_info[number-1][0])}.csv"
+                )
+
+                with open(csv_filename, "w+") as csvfile:
+                    filewriter = csv.writer(csvfile)
+                    filewriter.writerows(new_list)
+
+    sys.exit()
+    extern_file = [f for f in files if "_extern.inf" in f.lower()]
     if not extern_file:
         logger.error("Could not find _extern.inf file.")
         return None
