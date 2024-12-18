@@ -1,16 +1,35 @@
 __version__ = "0.2.2"
 
+import csv
+from loguru import logger
 import os
+from pathlib import Path
 import re
+import sys
 import shlex
 import subprocess
+from typing import Optional
 
-from loguru import logger
+from pydantic import BaseModel
+
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
 
-def run_cmd(cmd):
+class ParameterModel(BaseModel):
+    output_type: Optional[str] = None
+    peak_piking_flag: Optional[bool] = None
+    lockmass_flag: Optional[bool] = None
+    lockmass_value: Optional[float] = None
+    remove_zeros_flag: Optional[bool] = None
+    sortbyscan_flag: Optional[bool] = None
+    scan_event_filter_value: Optional[int] = None
+
+
+def run_cmd(cmd: str) -> str:
     """
     Run a command and return the output.
     """
@@ -31,45 +50,80 @@ def run_cmd(cmd):
     return output
 
 
-def get_vendor(file):
+def get_vendor_from_directory(datafile: str) -> str:
     """
-    Determine the vendor of the file.
+    Determine the vendor of the file based on the filename.
     Currently only supports Thermo and Agilent.
     Returns the vendor name.
     If the vendor is not supported, returns None.
     """
-    logger.info(f"Getting vendor for file: {file}")
+
+    directory_psuedo_ext = datafile.lower().split(".")[-1].replace("/", "")
+    # parse extension from directory example: data.raw -> .raw
+
+    match directory_psuedo_ext:
+        case "d":
+            return "bruker"
+        case "raw":
+            return "waters"
+        case _:
+            return "unspecified"
+
+
+def get_vendor_from_file(datafile: str) -> str:
+    """
+    Determine the vendor of the file based on the filename.
+    Currently only supports Thermo and Agilent.
+    Returns the vendor name.
+    If the vendor is not supported, returns None.
+    """
+
+    base, ext = os.path.splitext(datafile)
+    match ext.lower():
+        case ".raw":
+            return "thermo"
+        case ".d":
+            return "agilent"
+
+        # TODO: Add support for other file types
+        # case ".mzml":
+        #     return "mzml"
+        # case ".mzxml":
+        #     return "mzxml"
+        # case ".mgf":
+        #     return "mgf"
+        # case ".csv":
+        #     return "csv"
+        # case ".txt":
+        #     return "txt"
+
+        case _:
+            return "unspecified"
+
+
+def get_vendor(datafile: str) -> str:
+    """
+    Determine the vendor of the file.
+    If the vendor is not supported, returns unspecified.
+    """
+    logger.info(f"Getting vendor for file: {datafile}")
+
     # determine if file is folder or directory
 
-    vendor = None
-
-    if os.path.isdir(file):
-        logger.info("File is a directory.")
-        if ".d" in file:
-            vendor = "bruker"
-        elif ".raw" in file:
-            vendor = "waters"
-        else:
-            files = os.listdir(file)
-            for f in files:
-                if "_FUNC" in f:
-                    vendor = "waters"
-                else:
-                    vendor = "unspecified"
+    if os.path.isdir(datafile):
+        logger.info(f"File is a directory.")
+        vendor = get_vendor_from_directory(datafile)
+        logger.info(f"Vendor is {vendor}.")
+        return vendor
     else:
-        logger.info("File is a directory.")
-        if file.endswith(".raw"):
-            vendor = "Thermo"
-        elif file.endswith(".d"):
-            vendor = "Agilent"
-        else:
-            vendor = "unspecified"
-
-    logger.info(f"Vendor is {vendor}.")
-    return vendor
+        logger.info(f"File is a not a directory.")
+        vendor = get_vendor_from_file(datafile)
+        logger.info(f"Vendor is {vendor}.")
+        return vendor
 
 
 def format_function_number(s):
+
     match = re.search(r"Function (\d+)", s)
     if match:
         function_number = int(match.group(1))
@@ -135,19 +189,17 @@ def parse_chroinf(path):
     """
 
     analog_info = []
-    with open(path, "r") as f:
+    with open(path, "rb") as f:
 
         # header = re.sub(r"[\0-\x04]|\$CC\$|\([0-9]*\)", "", f.read(0x55)).strip()
         # print(header)
 
         f.seek(0x84)  # start offset
         while f.tell() < os.path.getsize(path):
-            read_tmp = f.read(0x55)
-
+            read_tmp = f.read(0x55).decode("latin-1")
             line = re.sub(r"[\0-\x04]|\$CC\$|\([0-9]*\)", "", read_tmp).strip()
 
             split = line.split(",")
-            print(split)
             info = []
             info.append(split[0])  # name
             if len(split) == 6:
@@ -194,64 +246,122 @@ def parse_chrodat(path):
     return times, vals
 
 
-import pprint
+def get_chromatogram_information(waters_files: str) -> list:
 
-pp = pprint.PrettyPrinter(indent=4)
+    waters_data = os.listdir(waters_files)
+    chrmo_info = list()
 
-import csv
+    for f in waters_data:
+        if "_chroms.inf" in f.lower():
+            chrmo_info = parse_chroinf(os.path.join(waters_files, f))
+    return chrmo_info
 
-import sys
-from pathlib import Path
-import re
+
+def write_chrom_csv(filename, time, intensity):
+    fieldnames = ["time", "intensity"]
+
+    with open(filename, mode="w", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for idx, _ in enumerate(time):
+            writer.writerow(
+                {
+                    "time": f"{time[idx]:.6f}",  # Format to 6 decimal places
+                    "intensity": f"{intensity[idx]:.6f}",
+                }
+            )
 
 
-def waters_convert(file, two_pass=False):
-    """
-    Convert Waters raw file to mzML format.
-    """
-    logger.info(f"Converting Waters file: {file}")
-    lockmass = False
+def export_chromtatograms_csv(waters_file: str, chrmo_info: list):
+
     # get the list of files in the directory
-    files = os.listdir(file)
-    path = Path(file)
-    parent_path = path.parent.absolute()
+    waters_files = os.listdir(waters_file)
+    parent_path = Path(waters_file).parent.absolute()
+    name = Path(waters_file).name
+
     # Test if _extern.inf file is present
-
-    for f in files:
-
-        if "_chroms.inf" == f.lower():
-            print(f)
-            analog_info = parse_chroinf(os.path.join(file, f))
-            print(analog_info)
 
     pattern = r"_chro(\d+)"
 
-    for f in files:
+    for f in waters_files:
+
         f_base, f_ext = os.path.splitext(f)
 
-        if "chro" in f_base.lower():
+        if "chro" in f_base.lower() and f_ext.lower() == ".dat":
             match = re.match(pattern, f_base)
             if match:
                 # Extract and print the number
                 number = int(match.group(1))
-                print(f"File: {f} -> Number: {number}")
 
-            print(f)
-            if f_ext.lower() == ".dat":
-                x, y = parse_chrodat(os.path.join(file, f))
-                # pp.pprint([x, y])
+                x, y = parse_chrodat(os.path.join(waters_file, f))
+
+                x = x * 60
 
                 new_list = zip(x.tolist(), y.tolist())
 
-                csv_filename = (
-                    f"{os.path.join(parent_path,analog_info[number-1][0])}.csv"
-                )
+                csv_name = f"{name}_{chrmo_info[number-1][0]}.csv"
+                csv_filename = f"{os.path.join(parent_path,csv_name)}"
 
-                with open(csv_filename, "w+") as csvfile:
-                    filewriter = csv.writer(csvfile)
-                    filewriter.writerows(new_list)
+                write_chrom_csv(csv_filename, x, y)
+                # with open(filename, "w+") as csvfile:
+                #     filewriter = csv.writer(csvfile)
+                #     filewriter.writerow(["time", "intensity"])
+                #     filewriter.writerows(zip(x, y))
 
-    sys.exit()
+                # with open(csv_filename, "w+") as csvfile:
+
+                #     filewriter = csv.writer(csvfile)
+                #     filewriter.writerow(["time", "intensity"])
+                #     filewriter.writerows(new_list)
+
+
+def waters_convert(
+    file, export_chrromatograms=True, lockmass=False, lockmass_value=None
+):
+    """
+    Convert Waters raw file to mzML format.
+    """
+
+    logger.info(f"Converting Waters file: {file}")
+
+    # get the list of files in the directory
+    files = os.listdir(file)
+    parent = Path(file).parent
+    name = Path(file).name
+    parent_path = Path(file).parent.absolute()
+    # Test if _extern.inf file is present
+
+    if export_chrromatograms:
+        analog_info = get_chromatogram_information(file)
+        export_chromtatograms_csv(file, analog_info)
+
+    # print(analog_info)
+
+    # pattern = r"_chro(\d+)"
+
+    # for f in files:
+    #     f_base, f_ext = os.path.splitext(f)
+
+    #     if "chro" in f_base.lower():
+
+    #         match = re.match(pattern, f_base.lower())
+    #         if match:
+    #             # Extract and print the number
+    #             number = int(match.group(1))
+
+    #         if f_ext.lower() == ".dat":
+    #             x, y = parse_chrodat(os.path.join(file, f))
+    #             # pp.pprint([x, y])
+
+    #             new_list = zip(x.tolist(), y.tolist())
+    #             csv_name = f"{name}_{analog_info[number-1][0]}.csv"
+    #             csv_filename = f"{os.path.join(parent_path,csv_name)}"
+
+    #             with open(csv_filename, "w+") as csvfile:
+    #                 filewriter = csv.writer(csvfile)
+    #                 filewriter.writerows(new_list)
+
     extern_file = [f for f in files if "_extern.inf" in f.lower()]
     if not extern_file:
         logger.error("Could not find _extern.inf file.")
@@ -270,110 +380,77 @@ def waters_convert(file, two_pass=False):
                 if "REFERENCE" in line:
                     function_string, function_number = format_function_number(line)
                     logger.info(f"Lockmass Reference found: {function_string}")
+                    lockmass = True
                 elif "ReferenceMass" in line:
                     # get the lockmass value from a line formatted like this "ReferenceMass1	1,554.2620221"
                     # TODO check if the lockmass is a single value or multiple value
                     lockmass_value = float(line.split("\t")[1].split(",")[1])
                     lockmass = True
                     logger.info(f"Lockmass value: {lockmass_value}")
+                elif "lockspray reference compound name" in line.lower():
+                    if "leu neg" in line.lower():
+                        lockmass = True
+                        lockmass_value = 554.2620221
 
-    
-
-    # print(two_pass)
-    # if two_pass:
-    #     # Identify the function files
-    #     func_files = [f for f in files if "_FUNC" in f]
-
-    #     old_function_file = None
-    #     old_function_file = None
-    #     for func_file in func_files:
-    #         if function_string in func_file and (
-    #             ".dat" in func_file or ".DAT" in func_file
-    #         ):
-    #             logger.info(f"Function file found: {func_file}")
-    #             old_function_file = os.path.join(file, func_file)
-    #             new_function_file = os.path.join(file, func_file + ".tmp")
-
-    #     logger.info("Renaming lockmass function file")
-    #     if old_function_file and new_function_file:
-    #         os.rename(old_function_file, new_function_file)
-
-    #     logger.info("Processing Waters file First Pass")
-    #     outfile = msconvert(
-    #         file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
-    #     )
-    #     outfile_temp = (
-    #         os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
-    #     )
-
-    #     os.rename(outfile, outfile_temp)
-
-    #     logger.info("Processing Waters scan headers")
-    #     process_waters_scan_headers(outfile_temp)
-
-    #     logger.info("Processing Waters mzML (adding index)")
-    #     outfile = msconvert(
-    #         outfile_temp,
-    #         outfile=outfile,
-    #         index=True,
-    #         peak_picking=True,
-    #         scan_event=
-    #         remove_zeros=True,
-    #     )
-
-    #     os.remove(outfile_temp)
-    #     if new_function_file and old_function_file:
-    #         logger.info("Restoring lockmass function file")
-    #         os.rename(new_function_file, old_function_file)
-
-    # else:
+    if lockmass == True and lockmass_value == None:
+        logger.error("Lockmass value not found.")
+        return None
 
     logger.info("Processing Waters file")
 
     logger.info("Processing Waters file First Pass")
 
+    parent = Path(file).parent
+    name = Path(file).name
+
     outfile = msconvert(
-        file,
+        os.path.join(parent, name),
         index=True,
         sortbyscan=True,
         peak_picking=True,
         remove_zeros=True,
         scan_event=function_number,
-        lockmass=True,
+        lockmass=lockmass,
         lockmass_value=lockmass_value,
     )
 
-    process_waters_scan_headers(outfile)
+    # process_waters_scan_headers(outfile)
 
     return outfile
 
 
-def convert_raw_file(file, vendor):
+def convert_raw_file(datafile: str, parameters: ParameterModel) -> str:
     """
     Convert the raw file to mzML format based on the vendor.
     """
-    logger.info(f"Converting {vendor} file: {file}")
-    match vendor.lower():
+
+    out_type = parameters.output_type
+
+    vendor = get_vendor(datafile)
+
+    logger.info(f"Converting {vendor} file: {datafile}")
+
+    match vendor:
         case "thermo":
-            outfile = msconvert(file)
-            return outfile
+            outfile = msconvert(datafile)
 
         case "agilent":
-            outfile = msconvert(file)
-            return outfile
+            outfile = msconvert(datafile)
 
         case "waters":
-            outfile = waters_convert(file)
-            return outfile
+            outfile = waters_convert(datafile)
 
         case "bruker":
-            outfile = msconvert(file)
-            return outfile
+            outfile = msconvert(datafile)
 
         case "unspecified":
             logger.error("Vendor not supported, trying msconvert.")
-            outfile = msconvert(file)
-            return outfile
+            outfile = msconvert(datafile)
+
+        case _:
+            logger.error("Cannot covert file.")
+
+    return outfile
 
 
 def msconvert(
@@ -392,10 +469,12 @@ def msconvert(
     Converts the given file to the mzML format using the msconvert tool.
     """
     params = ""
+    print(file)
     path = os.path.abspath(file)
+    print(path)
     directory = os.path.dirname(path)
     filename = os.path.basename(file)
-
+    print(file, filename)
     logger.info(f"File path = {path}")
     logger.info(f"Converting {file} to {type} format.")
     logger.info(f"Input directory: {directory}")
@@ -406,6 +485,8 @@ def msconvert(
         base = os.path.splitext(outfilename)[0]
     else:
         base = os.path.splitext(filename)[0]
+
+    print(outfile)
 
     if type == "mzxml":
         params += " --mzXML"
@@ -423,18 +504,16 @@ def msconvert(
     if index is False:
         params += " --noindex"
 
-
     if peak_picking is True:
         params += " --filter 'peakPicking true 2-'"
 
     if lockmass is True:
-        if int(lockmass_value) in [ 554 , 556 ]:
+        if int(lockmass_value) in [554, 556]:
             logger.info(f"Lockmass value recognized LeuEnk: {lockmass_value}")
             params += f" --filter 'lockmassRefiner mz=556.2771 mzNegIons=554.2615'"
         else:
             logger.error("Lockmass value not provided or not know. Ignoring lockmass.")
             lockmass = False
-
 
     if scan_event is not None:
         params += f" --filter 'scanEvent  1-{scan_event-1} {scan_event+1}-'"
