@@ -240,11 +240,12 @@ def msconvert(
     """
     Converts the given file to the mzML format using the msconvert tool.
     """
-    params = ""
-    path = os.path.abspath(file)
+    raw_path: str = os.path.abspath(file)
+    path = raw_path.strip("/") if raw_path.endswith("/") else raw_path
     directory = os.path.dirname(path)
-    filename = os.path.basename(file)
+    filename = os.path.basename(path)
 
+    logger.info(f"Raw path = {raw_path}")
     logger.info(f"File path = {path}")
     logger.info(f"Converting {file} to {type} format.")
     logger.info(f"Input directory: {directory}")
@@ -256,6 +257,7 @@ def msconvert(
     else:
         base = os.path.splitext(filename)[0]
 
+    params = ""
     if type == "mzxml":
         params += " --mzXML"
         outfile = base + ".mzXML"
