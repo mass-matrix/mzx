@@ -2,6 +2,12 @@
 History
 =======
 
+0.2.3 (2024-05-07)
+------------------
+* Handle trailing slashes when passed directory by @Kartstig in https://github.com/mass-matrix/mzx/pull/20
+
+**Full Changelog**: https://github.com/mass-matrix/mzx/compare/0.2.2...0.2.3
+
 0.2.2 (2024-11-15)
 ------------------
 
