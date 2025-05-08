@@ -50,9 +50,13 @@ ignore_missing_imports = true
 
 [tool.setuptools]
 package-dir = { "" = "src" }
+include-package-data = true
 
 [tool.setuptools.dynamic]
 version = { attr = "mzx.__version__" }
+
+[tool.setuptools.package-data]
+"*" = ["src/data/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
