@@ -1,18 +1,24 @@
 import os
 import sys
+from importlib import resources as impresources
+from loguru import logger
 from PySide6.QtCore import QByteArray, QSettings, QThread, Signal
-from PySide6.QtGui import QDropEvent, QDragLeaveEvent
+from PySide6.QtGui import QAction, QIcon, QDropEvent, QDragLeaveEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QSizePolicy,
+    QSystemTrayIcon,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 from . import convert_raw_file, docker, get_vendor, __version__
+
+DATA_DIR = os.path.join(str(impresources.files("mzx")), "..", "data")
 
 
 class ConverterThread(QThread):
@@ -96,9 +102,10 @@ class MainWindow(QMainWindow):
 
     def dragEnterEvent(self, event: QDropEvent) -> None:
         if event.mimeData().hasUrls():
-            event.accept()
             self.setStyleSheet("background-color: lightgreen;")
+            event.accept()
         else:
+            self.setStyleSheet("background-color: lightred;")
             event.ignore()
 
     def dragLeaveEvent(self, _event: QDragLeaveEvent) -> None:
@@ -108,8 +115,10 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("")  # Reset background color after drop
         for url in event.mimeData().urls():
             path = url.toLocalFile()
-            if os.path.isfile(path):
-                self.convert(path)
+            if not os.path.isfile(path) or os.path.isdir(path):
+                logger.error(f"Invalid path: {path}")
+                return
+            self.convert(path)
 
     def convert(self, path: str) -> None:
         if not docker.check_running():
@@ -143,6 +152,21 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
+
+    # Tray Icon
+    icon_path = os.path.join(DATA_DIR, "MMLogo-white-bg.png")
+    icon = QIcon(icon_path)
+    tray = QSystemTrayIcon()
+    tray.setIcon(icon)
+    tray.setVisible(True)
+    menu = QMenu()
+    quit = QAction("Quit")
+    quit.triggered.connect(app.quit)
+    menu.addAction(quit)
+    tray.setContextMenu(menu)
+
+    window.setWindowIcon(icon)
+
     window.show()
     sys.exit(app.exec())
 
