@@ -1,6 +1,7 @@
 **.DS_Store**
 **.mxML
 **.mzml
+**.d
 results
 .mypy_cache
 rust*
@@ -49,3 +50,5 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+#Raw 
