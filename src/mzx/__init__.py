@@ -211,7 +211,7 @@ def convert_raw_file(params):
             return outfile
 
         case "agilent":
-            outfile = msconvert(parms)
+            outfile = msconvert(params)
             return outfile
 
         case "waters":
@@ -244,7 +244,7 @@ def msconvert(params):
     logger.info(f"Input filename: {filename}")
 
     if params["outfile"] is not None:
-        outfilename = os.path.basename(outfile)
+        outfilename = os.path.basename(params["outfile"])
         base = os.path.splitext(outfilename)[0]
     else:
         base = os.path.splitext(filename)[0]
@@ -266,11 +266,11 @@ def msconvert(params):
     if params["index"] is False:
         filter_string += " --noindex"
 
-    if params["peak_picking"] is "all":
+    if params["peak_picking"] == "all":
         filter_string += " --filter 'peakPicking true 1-'"
-    elif params["peak_picking"] is "ms1":
+    elif params["peak_picking"] == "ms1":
         filter_string += " --filter 'peakPicking true 1'"
-    elif params["peak_picking"] is "msms":
+    elif params["peak_picking"] == "msms":
         filter_string += " --filter 'peakPicking true 2-'"
 
     if params["sortbyscan"] is True:

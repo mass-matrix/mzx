@@ -80,7 +80,7 @@ def main():
     else:
         params["vendor"] = args.vendor
 
-    status = convert_raw_file(params)
+    _status = convert_raw_file(params)
 
 
 if __name__ == "__main__":
