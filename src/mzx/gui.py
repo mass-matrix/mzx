@@ -26,24 +26,14 @@ class ConverterThread(QThread):
 
     def __init__(
         self,
-        path: str,
-        peakpicking: bool,
-        removezeros: bool,
+        params: dict,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self.path = path
-        self.peakpicking = peakpicking
-        self.removezeros = removezeros
-
-    def options(self) -> str:
-        options = ' --filter "peakPicking true 1-"' if self.peakpicking else ""
-        options += ' --filter "zeroSamples removeExtra"' if self.removezeros else ""
-        return options
+        self.params = params
 
     def run(self):
-        vendor = get_vendor(self.path)
-        _outfile = convert_raw_file(self.path, vendor)
+        _outfile = convert_raw_file(self.params)
         # Emit finished signal automatically when the thread ends
 
 
@@ -115,9 +105,9 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("")  # Reset background color after drop
         for url in event.mimeData().urls():
             path = url.toLocalFile()
-            if not os.path.isfile(path) or os.path.isdir(path):
-                logger.error(f"Invalid path: {path}")
-                return
+            # if not os.path.isfile(path) or os.path.isdir(path):
+            #     logger.error(f"Invalid path: {path}")
+            #     return
             self.convert(path)
 
     def convert(self, path: str) -> None:
@@ -126,12 +116,36 @@ class MainWindow(QMainWindow):
             self.log_text_edit.append("Docker is not running. Conversion cancelled.")
             return
 
-        peakpicking = self.peakpicking_checkbox.isChecked()
-        removezeros = self.removezeros_checkbox.isChecked()
         self.log_text_edit.append(f"Launching thread to convert {path}...")
 
-        # Create thread and connect its finished signal to a logging method
-        self.convert_thread = ConverterThread(path, peakpicking, removezeros)
+        # Create thread and connect its finishe
+        #
+
+        params = {
+            "infile": path,
+            "index": False,
+            "sortbyscan": False,
+            "peak_picking": "off",
+            "remove_zeros": False,
+            "vendor": None,
+            "outfile": None,
+            "type": "mzml",
+            "overwrite": False,
+            "debug": False,
+            "verbose": False,
+        }
+
+        params["vendor"] = get_vendor(params)
+        if self.peakpicking_checkbox.isChecked():
+            params["peak_picking"] = "all"
+        else:
+            params["peak_picking"] = "off"
+        if self.removezeros_checkbox.isChecked():
+            params["remove_zeros"] = True
+        else:
+            params["remove_zeros"] = False
+
+        self.convert_thread = ConverterThread(params)
         self.convert_thread.finished.connect(self.on_conversion_complete)
         self.convert_thread.start()
 

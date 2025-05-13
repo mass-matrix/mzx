@@ -31,26 +31,26 @@ def run_cmd(cmd):
     return output
 
 
-def get_vendor(file):
+def get_vendor(params):
     """
     Determine the vendor of the file.
     Currently only supports Thermo and Agilent.
     Returns the vendor name.
     If the vendor is not supported, returns None.
     """
-    logger.info(f"Getting vendor for file: {file}")
+    logger.info(f"Getting vendor for file: {params['infile']}")
     # determine if file is folder or directory
 
     vendor = None
 
-    if os.path.isdir(file):
+    if os.path.isdir(params["infile"]):
         logger.info("File is a directory.")
-        if ".d" in file:
+        if ".d" in params["infile"]:
             vendor = "bruker"
-        elif ".raw" in file:
+        elif ".raw" in params["infile"]:
             vendor = "waters"
         else:
-            files = os.listdir(file)
+            files = os.listdir(params["infile"])
             for f in files:
                 if "_FUNC" in f:
                     vendor = "waters"
@@ -58,9 +58,9 @@ def get_vendor(file):
                     vendor = "unspecified"
     else:
         logger.info("File is a directory.")
-        if file.endswith(".raw"):
+        if params["infile"].endswith(".raw"):
             vendor = "Thermo"
-        elif file.endswith(".d"):
+        elif params["infile"].endswith(".d"):
             vendor = "Agilent"
         else:
             vendor = "unspecified"
@@ -200,91 +200,87 @@ def waters_convert(file, two_pass=False):
     return outfile
 
 
-def convert_raw_file(file, vendor):
+def convert_raw_file(params):
     """
     Convert the raw file to mzML format based on the vendor.
     """
-    logger.info(f"Converting {vendor} file: {file}")
-    match vendor.lower():
+    logger.info(f"Converting {params['vendor']} file: {params['infile']}")
+    match params["vendor"].lower():
         case "thermo":
-            outfile = msconvert(file)
+            outfile = msconvert(params)
             return outfile
 
         case "agilent":
-            outfile = msconvert(file)
+            outfile = msconvert(params)
             return outfile
 
         case "waters":
-            outfile = waters_convert(file)
+            outfile = waters_convert(params)
             return outfile
 
         case "bruker":
-            outfile = msconvert(file)
+            outfile = msconvert(params)
             return outfile
 
         case "unspecified":
             logger.error("Vendor not supported, trying msconvert.")
-            outfile = msconvert(file)
+            outfile = msconvert(params)
             return outfile
 
 
-def msconvert(
-    file,
-    outfile=None,
-    type="mzml",
-    index=True,
-    sortbyscan=False,
-    peak_picking=True,
-    remove_zeros=True,
-):
+def msconvert(params):
     """
     Converts the given file to the mzML format using the msconvert tool.
     """
-    raw_path: str = os.path.abspath(file)
+    raw_path: str = os.path.abspath(params["infile"])
     path = raw_path.strip("/") if raw_path.endswith("/") else raw_path
     directory = os.path.dirname(path)
     filename = os.path.basename(path)
 
     logger.info(f"Raw path = {raw_path}")
     logger.info(f"File path = {path}")
-    logger.info(f"Converting {file} to {type} format.")
+    logger.info(f"Converting {params['infile']} to {params['type']} format.")
     logger.info(f"Input directory: {directory}")
     logger.info(f"Input filename: {filename}")
 
-    if outfile is not None:
-        outfilename = os.path.basename(outfile)
+    if params["outfile"] is not None:
+        outfilename = os.path.basename(params["outfile"])
         base = os.path.splitext(outfilename)[0]
     else:
         base = os.path.splitext(filename)[0]
 
-    params = ""
-    if type == "mzxml":
-        params += " --mzXML"
+    filter_string = ""
+    if params["type"] == "mzxml":
+        filter_string += " --mzXML"
         outfile = base + ".mzXML"
-    elif type == "mgf":
-        params += " --mgf"
+    elif params["type"] == "mgf":
+        filter_string += " --mgf"
         outfile = base + ".mgf"
     else:
-        params += " --mzML"
+        filter_string += " --mzML"
         outfile = base + ".mzML"
 
     logger.info(f"Output file: {outfile}")
-    params += f' --outfile "/data/{outfile}"'
+    filter_string += f' --outfile "/data/{outfile}"'
 
-    if index is False:
-        params += " --noindex"
+    if params["index"] is False:
+        filter_string += " --noindex"
 
-    if peak_picking is True:
-        params += " --filter 'peakPicking true 1-'"
+    if params["peak_picking"] == "all":
+        filter_string += " --filter 'peakPicking true 1-'"
+    elif params["peak_picking"] == "ms1":
+        filter_string += " --filter 'peakPicking true 1'"
+    elif params["peak_picking"] == "msms":
+        filter_string += " --filter 'peakPicking true 2-'"
 
-    if sortbyscan is True:
-        params += " --filter 'sortByScanTime'"
+    if params["sortbyscan"] is True:
+        filter_string += " --filter 'sortByScanTime'"
 
-    if remove_zeros is True:
-        params += " --filter 'zeroSamples removeExtra'"
+    if params["remove_zeros"] is True:
+        filter_string += " --filter 'zeroSamples removeExtra'"
 
     cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
-        directory, docker_image, filename, params
+        directory, docker_image, filename, filter_string
     )
 
     logger.info("Running msconvert")
