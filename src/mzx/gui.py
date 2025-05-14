@@ -1,7 +1,6 @@
 import os
 import sys
 from importlib import resources as impresources
-from loguru import logger
 from PySide6.QtCore import QByteArray, QSettings, QThread, Signal
 from PySide6.QtGui import QAction, QIcon, QDropEvent, QDragLeaveEvent
 from PySide6.QtWidgets import (
