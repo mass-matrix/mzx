@@ -1,5 +1,6 @@
 import os
 import sys
+
 from importlib import resources as impresources
 from PySide6.QtCore import QByteArray, QSettings, QThread, Signal
 from PySide6.QtGui import QAction, QIcon, QDropEvent, QDragLeaveEvent
@@ -15,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from . import convert_raw_file, docker, get_vendor, __version__
+from . import __version__, convert_raw_file, docker, types, vendor
 
 DATA_DIR = os.path.join(str(impresources.files("mzx")), "..", "data")
 
@@ -25,7 +26,7 @@ class ConverterThread(QThread):
 
     def __init__(
         self,
-        params: dict,
+        params: types.TConfig,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -120,29 +121,20 @@ class MainWindow(QMainWindow):
         # Create thread and connect its finishe
         #
 
-        params = {
+        vendor_name = vendor.vendor_name_from_file(path)
+        params: types.TConfig = {
             "infile": path,
             "index": False,
             "sortbyscan": False,
-            "peak_picking": "off",
-            "remove_zeros": False,
-            "vendor": None,
+            "peak_picking": "all" if self.peakpicking_checkbox.isChecked() else "off",
+            "remove_zeros": self.removezeros_checkbox.isChecked(),
+            "vendor": vendor_name,
             "outfile": None,
             "type": "mzml",
             "overwrite": False,
             "debug": False,
             "verbose": False,
         }
-
-        params["vendor"] = get_vendor(params)
-        if self.peakpicking_checkbox.isChecked():
-            params["peak_picking"] = "all"
-        else:
-            params["peak_picking"] = "off"
-        if self.removezeros_checkbox.isChecked():
-            params["remove_zeros"] = True
-        else:
-            params["remove_zeros"] = False
 
         self.convert_thread = ConverterThread(params)
         self.convert_thread.finished.connect(self.on_conversion_complete)

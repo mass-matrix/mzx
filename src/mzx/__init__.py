@@ -4,8 +4,9 @@ import os
 import re
 import shlex
 import subprocess
-
 from loguru import logger
+
+from . import types
 
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
@@ -29,44 +30,6 @@ def run_cmd(cmd):
 
     logger.info("Process Complete")
     return output
-
-
-def get_vendor(params):
-    """
-    Determine the vendor of the file.
-    Currently only supports Thermo and Agilent.
-    Returns the vendor name.
-    If the vendor is not supported, returns None.
-    """
-    logger.info(f"Getting vendor for file: {params['infile']}")
-    # determine if file is folder or directory
-
-    vendor = None
-
-    if os.path.isdir(params["infile"]):
-        logger.info("File is a directory.")
-        if ".d" in params["infile"]:
-            vendor = "bruker"
-        elif ".raw" in params["infile"]:
-            vendor = "waters"
-        else:
-            files = os.listdir(params["infile"])
-            for f in files:
-                if "_FUNC" in f:
-                    vendor = "waters"
-                else:
-                    vendor = "unspecified"
-    else:
-        logger.info("File is a directory.")
-        if params["infile"].endswith(".raw"):
-            vendor = "Thermo"
-        elif params["infile"].endswith(".d"):
-            vendor = "Agilent"
-        else:
-            vendor = "unspecified"
-
-    logger.info(f"Vendor is {vendor}.")
-    return vendor
 
 
 def format_function_number(s):
@@ -164,9 +127,20 @@ def waters_convert(file, two_pass=False):
 
     if two_pass:
         logger.info("Processing Waters file First Pass")
-        outfile = msconvert(
-            file, index=False, sortbyscan=True, peak_picking=True, remove_zeros=True
+        two_pass_config: types.TConfig = dict(
+            type="mzml",
+            vendor="waters",
+            debug=False,
+            infile=file,
+            index=False,
+            sortbyscan=True,
+            peak_picking="all",
+            remove_zeros=True,
+            outfile=None,
+            overwrite=False,
+            verbose=True,
         )
+        outfile = msconvert(two_pass_config)
         outfile_temp = (
             os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
         )
@@ -177,21 +151,39 @@ def waters_convert(file, two_pass=False):
         process_waters_scan_headers(outfile_temp)
 
         logger.info("Processing Waters mzML (adding index)")
-        outfile = msconvert(
-            outfile_temp,
-            outfile=outfile,
+        two_pass_config_2: types.TConfig = dict(
+            type="mzml",
+            vendor="waters",
+            debug=False,
+            infile=outfile_temp,
             index=True,
-            peak_picking=True,
+            sortbyscan=False,
+            peak_picking="all",
             remove_zeros=True,
+            outfile=None,
+            overwrite=False,
+            verbose=True,
         )
+        outfile = msconvert(two_pass_config_2)
 
         # os.remove(outfile_temp)
 
     else:
         logger.info("Processing Waters file")
-        outfile = msconvert(
-            file, index=True, sortbyscan=True, peak_picking=True, remove_zeros=True
+        single_pass_config: types.TConfig = dict(
+            type="mzml",
+            vendor="waters",
+            debug=False,
+            infile=file,
+            index=True,
+            sortbyscan=True,
+            peak_picking="all",
+            remove_zeros=True,
+            outfile=None,
+            overwrite=False,
+            verbose=False,
         )
+        outfile = msconvert(single_pass_config)
 
     if new_function_file and old_function_file:
         logger.info("Restoring lockmass function file")
@@ -200,7 +192,7 @@ def waters_convert(file, two_pass=False):
     return outfile
 
 
-def convert_raw_file(params):
+def convert_raw_file(params: types.TConfig) -> str:
     """
     Convert the raw file to mzML format based on the vendor.
     """
@@ -226,6 +218,8 @@ def convert_raw_file(params):
             logger.error("Vendor not supported, trying msconvert.")
             outfile = msconvert(params)
             return outfile
+        case _:
+            raise Exception("Invalid vendor")
 
 
 def msconvert(params):

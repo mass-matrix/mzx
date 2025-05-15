@@ -1,6 +1,6 @@
 import argparse
 
-from . import convert_raw_file, get_vendor
+from . import convert_raw_file, types, vendor
 
 
 def main():
@@ -60,25 +60,20 @@ def main():
     )
     parser.add_argument("--output", type=str, default=None, help="The output file.")
     args = parser.parse_args()
-
-    params = {
+    vendor_name = vendor.vendor_name_from_file(args.file)
+    params: types.TConfig = {
         "infile": args.file,
         "index": args.index,
         "sortbyscan": args.sortbyscan,
         "peak_picking": args.peak_picking,
         "remove_zeros": args.remove_zeros,
-        "vendor": None,
+        "vendor": vendor_name,
         "outfile": None,
         "type": args.type,
         "overwrite": args.overwrite,
         "debug": args.debug,
         "verbose": args.verbose,
     }
-
-    if args.vendor is None:
-        params["vendor"] = get_vendor(params)
-    else:
-        params["vendor"] = args.vendor
 
     _status = convert_raw_file(params)
 
