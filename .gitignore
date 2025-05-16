@@ -1,6 +1,7 @@
 **.DS_Store**
 **.mxML
 **.mzml
+**.d
 results
 .mypy_cache
 rust*
