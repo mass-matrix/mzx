@@ -2,6 +2,17 @@
 History
 =======
 
+0.3.0 (2025-05-19)
+------------------
+* Update GUI to allow directory + icon by @Kartstig in https://github.com/mass-matrix/mzx/pull/21
+* added params to gui by @mafreitas in https://github.com/mass-matrix/mzx/pull/25
+* Bump cryptography from 43.0.1 to 44.0.1 in the pip group across 1 directory by @dependabot in https://github.com/mass-matrix/mzx/pull/22
+
+## New Contributors
+* @dependabot made their first contribution in https://github.com/mass-matrix/mzx/pull/22
+
+**Full Changelog**: https://github.com/mass-matrix/mzx/compare/0.2.3...0.3.0
+
 0.2.3 (2024-05-07)
 ------------------
 * Handle trailing slashes when passed directory by @Kartstig in https://github.com/mass-matrix/mzx/pull/20
