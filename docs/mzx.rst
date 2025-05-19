@@ -12,10 +12,34 @@ mzx.cli module
    :undoc-members:
    :show-inheritance:
 
+mzx.docker module
+-----------------
+
+.. automodule:: mzx.docker
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 mzx.gui module
 --------------
 
 .. automodule:: mzx.gui
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mzx.types module
+----------------
+
+.. automodule:: mzx.types
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+mzx.vendor module
+-----------------
+
+.. automodule:: mzx.vendor
    :members:
    :undoc-members:
    :show-inheritance:
