@@ -47,7 +47,7 @@ rfc3986==2.0.0
 rich==13.9.2
 ruff==0.6.4
 secretstorage==3.3.3
-setuptools==75.1.0
+setuptools==78.1.1
 shiboken6==6.7.3
 six==1.16.0
 snowballstemmer==2.2.0
