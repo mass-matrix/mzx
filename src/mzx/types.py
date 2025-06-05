@@ -22,3 +22,9 @@ class TConfig(TypedDict):
     overwrite: bool
     debug: bool
     verbose: bool
+    lockmass_disabled: bool
+    lockmass: bool
+    neg_lockmass: float
+    pos_lockmass: float
+    lockmass_tolerance: float
+    lockmass_function_exclude: int | None
