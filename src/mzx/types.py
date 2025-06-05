@@ -14,7 +14,7 @@ class TConfig(TypedDict):
     infile: str
     index: bool
     sortbyscan: bool
-    peak_picking: Literal["all", "off"]
+    peak_picking: Literal["off", "all", "msms", "ms1"]
     remove_zeros: bool
     vendor: TVendor
     outfile: str | None
