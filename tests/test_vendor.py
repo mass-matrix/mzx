@@ -2,7 +2,7 @@ import pytest
 from unittest import mock
 
 # Assuming your function is in a module named `vendor_utils.py`
-from src.mzx import vendor
+from src.mzx import WatersConvertException, vendor, waters_convert
 
 
 @pytest.mark.parametrize(
@@ -45,3 +45,28 @@ def test_directory_with_no_vendor_hint(tmp_path):
     (path / "file2.csv").write_text("def")
     with mock.patch("os.path.isdir", return_value=True):
         assert vendor.vendor_name_from_file(str(path)) == "unspecified"
+
+
+def test_waters_cannot_find_inf_exception(tmp_path):
+    with pytest.raises(WatersConvertException):
+        waters_convert(
+            {
+                "infile": tmp_path,
+                "index": False,
+                "sortbyscan": False,
+                "peak_picking": "all",
+                "remove_zeros": True,
+                "vendor": "waters",
+                "outfile": None,
+                "type": "mzml",
+                "overwrite": False,
+                "debug": False,
+                "verbose": False,
+                "lockmass": None,
+                "lockmass_disabled": None,
+                "lockmass_function_exclude": None,
+                "lockmass_tolerance": None,
+                "neg_lockmass": None,
+                "pos_lockmass": None,
+            }
+        )

@@ -11,6 +11,14 @@ from . import types
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
 
+class WatersConvertException(Exception):
+    pass
+
+
+class RawFileConversionError(Exception):
+    pass
+
+
 def run_cmd(cmd):
     """
     Run a command and return the output.
@@ -96,8 +104,9 @@ def waters_convert(params: types.TConfig) -> str:
 
     extern_file = [f for f in files if "_extern.inf" in f]
     if not extern_file:
-        logger.error("Could not find _extern.inf file.")
-        return None
+        raise WatersConvertException(
+            "Unable to convert Waters file, no _extern.inf file found!"
+        )
     else:
         logger.info("Found _extern.inf file.")
         # Read the _extern.inf file
@@ -147,27 +156,22 @@ def convert_raw_file(params: types.TConfig) -> str:
     logger.info(f"Converting {params['vendor']} file: {params['infile']}")
     match params["vendor"].lower():
         case "thermo":
-            outfile = msconvert(params)
-            return outfile
-
+            return msconvert(params)
         case "agilent":
-            outfile = msconvert(params)
-            return outfile
-
+            return msconvert(params)
         case "waters":
-            outfile = waters_convert(params)
-            return outfile
-
+            try:
+                return waters_convert(params)
+            except WatersConvertException as e:
+                logger.error(str(e))
+                raise RawFileConversionError(str(e))
         case "bruker":
-            outfile = msconvert(params)
-            return outfile
-
+            return msconvert(params)
         case "unspecified":
             logger.error("Vendor not supported, trying msconvert.")
-            outfile = msconvert(params)
-            return outfile
+            return msconvert(params)
         case _:
-            raise Exception("Invalid vendor")
+            raise RawFileConversionError("Unsupported vendor!")
 
 
 def exclusion_string(x: int) -> str:

@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, Union
+from typing import Literal, Optional, TypedDict, Union
 
 # Vendors
 TBruker = Literal["bruker"]
@@ -22,9 +22,9 @@ class TConfig(TypedDict):
     overwrite: bool
     debug: bool
     verbose: bool
-    lockmass_disabled: bool
-    lockmass: bool
-    neg_lockmass: float
-    pos_lockmass: float
-    lockmass_tolerance: float
-    lockmass_function_exclude: int | None
+    lockmass_disabled: Optional[bool]
+    lockmass: Optional[bool]
+    neg_lockmass: Optional[float]
+    pos_lockmass: Optional[float]
+    lockmass_tolerance: Optional[float]
+    lockmass_function_exclude: Optional[int]

@@ -1,6 +1,7 @@
 import argparse
 
 from . import convert_raw_file, types, vendor
+from loguru import logger
 
 
 def main():
@@ -105,7 +106,11 @@ def main():
         "lockmass_function_exclude": None,
     }
 
-    _status = convert_raw_file(params)
+    try:
+        _status = convert_raw_file(params)
+    except Exception as e:
+        logger.error("Raw file conversion failed!")
+        logger.error(str(e))
 
 
 if __name__ == "__main__":

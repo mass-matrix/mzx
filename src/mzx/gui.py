@@ -134,6 +134,12 @@ class MainWindow(QMainWindow):
             "overwrite": False,
             "debug": False,
             "verbose": False,
+            "lockmass": None,
+            "lockmass_disabled": None,
+            "lockmass_function_exclude": None,
+            "lockmass_tolerance": None,
+            "neg_lockmass": None,
+            "pos_lockmass": None,
         }
 
         self.convert_thread = ConverterThread(params)
