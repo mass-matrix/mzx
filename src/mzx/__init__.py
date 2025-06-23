@@ -11,12 +11,20 @@ from . import types
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
 
+class WatersConvertException(Exception):
+    pass
+
+
+class RawFileConversionError(Exception):
+    pass
+
+
 def run_cmd(cmd):
     """
     Run a command and return the output.
     """
     cmd = shlex.split(cmd, posix=True)
-    logger.info(f"Running command: {cmd}")
+    # logger.info(f"Running command: {cmd}")
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
 
     output = ""
@@ -36,7 +44,7 @@ def format_function_number(s):
     match = re.search(r"Function (\d+)", s)
     if match:
         function_number = int(match.group(1))
-        return f"_FUNC{function_number:03d}"
+        return f"_FUNC{function_number:03d}", function_number
     else:
         return None
 
@@ -79,115 +87,64 @@ def process_waters_scan_headers(file_path):
         file.writelines(modified_lines)
 
 
-def waters_convert(file, two_pass=False):
+def waters_convert(params: types.TConfig) -> str:
     """
     Convert Waters raw file to mzML format.
     """
-    logger.info(f"Converting Waters file: {file}")
+    logger.info(f"Converting Waters file: {params['infile']}")
 
+    # Find the lockmass reference in the _extern.inf file
+    lockmass_present = False
+
+    if not params["lockmass_disabled"]:
+        logger.info("Using Lockmass reference is enabled if present.")
     # get the list of files in the directory
-    files = os.listdir(file)
+    files = os.listdir(params["infile"])
     # Test if _extern.inf file is present
 
     extern_file = [f for f in files if "_extern.inf" in f]
     if not extern_file:
-        logger.error("Could not find _extern.inf file.")
-        return None
+        raise WatersConvertException(
+            "Unable to convert Waters file, no _extern.inf file found!"
+        )
     else:
         logger.info("Found _extern.inf file.")
         # Read the _extern.inf file
-        ex_file_path: str = os.path.join(file, extern_file[0])
+        ex_file_path: str = os.path.join(params["infile"], extern_file[0])
         with open(ex_file_path, "r", encoding="latin-1", errors="strict") as f:
             lines = f.readlines()
             # Identify the function file for the REFERENCE
-
             for line in lines:
                 if "REFERENCE" in line:
-                    function_string = format_function_number(line)
-
-                    logger.info(f"Reference found: {function_string}")
+                    function_string, function_number = format_function_number(line)
+                    logger.info(f"Lockmass Reference found: {function_string}")
+                    logger.info(
+                        f"Lockmass ScanEvent Function number: {function_number}"
+                    )
+                    lockmass_present = True
                     break
 
-    # Identify the function files
+    waters_params: types.TConfig = dict(
+        type="mzml",
+        vendor="waters",
+        debug=False,
+        infile=params["infile"],
+        index=True,
+        sortbyscan=params["sortbyscan"],
+        peak_picking=params["peak_picking"],
+        remove_zeros=params["remove_zeros"],
+        outfile=None,
+        overwrite=False,
+        verbose=False,
+        lockmass_disabled=params["lockmass_disabled"],
+        lockmass=True if lockmass_present else False,
+        neg_lockmass=params["neg_lockmass"],
+        pos_lockmass=params["pos_lockmass"],
+        lockmass_tolerance=params["lockmass_tolerance"],
+        lockmass_function_exclude=function_number if lockmass_present else None,
+    )
 
-    func_files = [f for f in files if "_FUNC" in f]
-    old_function_file = None
-    old_function_file = None
-    for func_file in func_files:
-        if function_string in func_file and (
-            ".dat" in func_file or ".DAT" in func_file
-        ):
-            logger.info(f"Function file found: {func_file}")
-            old_function_file = os.path.join(file, func_file)
-            new_function_file = os.path.join(file, func_file + ".tmp")
-
-    logger.info("Renaming lockmass function file")
-    if old_function_file and new_function_file:
-        os.rename(old_function_file, new_function_file)
-
-    if two_pass:
-        logger.info("Processing Waters file First Pass")
-        two_pass_config: types.TConfig = dict(
-            type="mzml",
-            vendor="waters",
-            debug=False,
-            infile=file,
-            index=False,
-            sortbyscan=True,
-            peak_picking="all",
-            remove_zeros=True,
-            outfile=None,
-            overwrite=False,
-            verbose=True,
-        )
-        outfile = msconvert(two_pass_config)
-        outfile_temp = (
-            os.path.splitext(outfile)[0] + "_tmp" + os.path.splitext(outfile)[1]
-        )
-
-        os.rename(outfile, outfile_temp)
-
-        logger.info("Processing Waters scan headers")
-        process_waters_scan_headers(outfile_temp)
-
-        logger.info("Processing Waters mzML (adding index)")
-        two_pass_config_2: types.TConfig = dict(
-            type="mzml",
-            vendor="waters",
-            debug=False,
-            infile=outfile_temp,
-            index=True,
-            sortbyscan=False,
-            peak_picking="all",
-            remove_zeros=True,
-            outfile=None,
-            overwrite=False,
-            verbose=True,
-        )
-        outfile = msconvert(two_pass_config_2)
-
-        # os.remove(outfile_temp)
-
-    else:
-        logger.info("Processing Waters file")
-        single_pass_config: types.TConfig = dict(
-            type="mzml",
-            vendor="waters",
-            debug=False,
-            infile=file,
-            index=True,
-            sortbyscan=True,
-            peak_picking="all",
-            remove_zeros=True,
-            outfile=None,
-            overwrite=False,
-            verbose=False,
-        )
-        outfile = msconvert(single_pass_config)
-
-    if new_function_file and old_function_file:
-        logger.info("Restoring lockmass function file")
-        os.rename(new_function_file, old_function_file)
+    outfile = msconvert(waters_params)
 
     return outfile
 
@@ -199,27 +156,51 @@ def convert_raw_file(params: types.TConfig) -> str:
     logger.info(f"Converting {params['vendor']} file: {params['infile']}")
     match params["vendor"].lower():
         case "thermo":
-            outfile = msconvert(params)
-            return outfile
-
+            return msconvert(params)
         case "agilent":
-            outfile = msconvert(params)
-            return outfile
-
+            return msconvert(params)
         case "waters":
-            outfile = waters_convert(params)
-            return outfile
-
+            try:
+                return waters_convert(params)
+            except WatersConvertException as e:
+                logger.error(str(e))
+                raise RawFileConversionError(str(e))
         case "bruker":
-            outfile = msconvert(params)
-            return outfile
-
+            return msconvert(params)
         case "unspecified":
             logger.error("Vendor not supported, trying msconvert.")
-            outfile = msconvert(params)
-            return outfile
+            return msconvert(params)
         case _:
-            raise Exception("Invalid vendor")
+            raise RawFileConversionError("Unsupported vendor!")
+
+
+def exclusion_string(x: int) -> str:
+    """
+    Return a string representing “all positive integers except x,”
+    using “start-end” ranges.  By convention, “N-” means “N through ∞.”
+
+    Examples:
+      exclude 5 → "1-4 6-"
+      exclude 1 → "2-"
+      exclude 2 → "1 3-"
+      exclude 3 → "1-2 4-"
+    """
+    if x < 1:
+        raise ValueError("x must be a positive integer")
+
+    parts = []
+
+    # If x>1, we allow 1..(x-1).  Format as "1" if x-1==1, otherwise "1-(x-1)".
+    if x > 1:
+        if x - 1 == 1:
+            parts.append("1")
+        else:
+            parts.append(f"1-{x-1}")
+
+    # Always allow (x+1)..∞, shown as "(x+1)-"
+    parts.append(f"{x+1}-")
+
+    return " ".join(parts)
 
 
 def msconvert(params):
@@ -272,6 +253,23 @@ def msconvert(params):
 
     if params["remove_zeros"] is True:
         filter_string += " --filter 'zeroSamples removeExtra'"
+    if params["lockmass"]:
+        if params["neg_lockmass"] is not None:
+            neg_lockmass = params["neg_lockmass"]
+        else:
+            neg_lockmass = 554.2615
+        if params["pos_lockmass"] is not None:
+            pos_lockmass = params["pos_lockmass"]
+        else:
+            pos_lockmass = 556.2771
+        if params["lockmass_tolerance"] is not None:
+            lockmass_tolerance = params["lockmass_tolerance"]
+        else:
+            lockmass_tolerance = 0.1
+        filter_string += f" --filter 'lockmassRefiner mz={pos_lockmass} mzNegIons={neg_lockmass} tol={lockmass_tolerance}'"
+
+        if params["lockmass_function_exclude"] is not None:
+            filter_string += f" --filter 'scanEvent {exclusion_string(params['lockmass_function_exclude'])}'"
 
     cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
         directory, docker_image, filename, filter_string
