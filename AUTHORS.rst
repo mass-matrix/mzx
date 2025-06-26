@@ -11,4 +11,4 @@ Contributors
 ------------
 
 * Herman Singh <herman@massmatrix.bio>
-
+* Mike Kolich <mike.kolich@massmatrix.bio>

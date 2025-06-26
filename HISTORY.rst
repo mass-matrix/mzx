@@ -2,6 +2,17 @@
 History
 =======
 
+0.3.1 (2025-06-26)
+------------------
+* Bump setuptools from 75.1.0 to 78.1.1 in the pip group across 1 directory by @dependabot in https://github.com/mass-matrix/mzx/pull/27
+* Fixes mypy errors. by @neonelemental in https://github.com/mass-matrix/mzx/pull/32
+* cleaned up waters parsing and added additional waters specific options by @mafreitas in https://github.com/mass-matrix/mzx/pull/28
+
+## New Contributors
+* @neonelemental made their first contribution in https://github.com/mass-matrix/mzx/pull/32
+
+**Full Changelog**: https://github.com/mass-matrix/mzx/compare/0.3.0...0.3.1
+
 0.3.0 (2025-05-19)
 ------------------
 * Update GUI to allow directory + icon by @Kartstig in https://github.com/mass-matrix/mzx/pull/21
