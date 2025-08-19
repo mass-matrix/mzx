@@ -219,7 +219,7 @@ def msconvert(params):
         base = os.path.splitext(outfilename)[0]
     else:
         base = os.path.splitext(filename)[0]
-
+    print(params)
     filter_string = ""
     if params["type"] == "mzxml":
         filter_string += " --mzXML"
@@ -249,7 +249,10 @@ def msconvert(params):
 
     if params["remove_zeros"] is True:
         filter_string += " --filter 'zeroSamples removeExtra'"
-    if params["lockmass"]:
+
+    if "lockmass" not in params:
+        params["lockmass"] = False
+    elif params["lockmass"]:
         if params["neg_lockmass"] is not None:
             neg_lockmass = params["neg_lockmass"]
         else:
@@ -267,7 +270,7 @@ def msconvert(params):
         if params["lockmass_function_exclude"] is not None:
             filter_string += f" --filter 'scanEvent {exclusion_string(params['lockmass_function_exclude'])}'"
 
-    cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
+    cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' -v {}".format(
         directory, docker_image, filename, filter_string
     )
 
