@@ -2,6 +2,17 @@
 History
 =======
 
+0.3.2 (2026-03-25)
+------------------
+* Documentation: README and Sphinx docs updated for clearer setup, prerequisites (Docker, Python 3.10+), installation from source, and usage; fixed incorrect license line in usage docs (GPLv3); corrected CONTRIBUTING workflow (ruff, pytest, ``make`` targets) and removed stale template text.
+* Packaging: add ``python -m mzx`` as the CLI entry (``__main__.py``); register ``mzx-gui`` under ``gui_scripts`` so Windows installs a GUI launcher via ``pythonw`` (no extra console window); document ``python -m mzx.gui`` when debugging or when scripts are not on ``PATH``.
+* Project metadata: PyPI “Documentation” URL now points to https://mzx.readthedocs.io/en/latest/ .
+* CI: install the package in editable mode before running tests so ``import mzx`` works; remove obsolete ``requirements.txt`` ``sed`` workaround from the workflow.
+* Makefile: ``help`` text for common targets (``install``, ``setup``, ``test``, etc.).
+* Tests: expanded coverage for ``msconvert``, ``convert_raw_file``, ``waters_convert``, CLI, ``run_cmd``, ``exclusion_string`` / Waters helpers, and ``python -m mzx``; tests import the ``mzx`` package instead of ``src.mzx``.
+
+**Full Changelog**: https://github.com/mass-matrix/mzx/compare/0.3.1...0.3.2
+
 0.3.1 (2025-06-26)
 ------------------
 * Bump setuptools from 75.1.0 to 78.1.1 in the pip group across 1 directory by @dependabot in https://github.com/mass-matrix/mzx/pull/27

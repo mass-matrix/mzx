@@ -1,8 +1,7 @@
 import pytest
 from unittest import mock
 
-# Assuming your function is in a module named `vendor_utils.py`
-from src.mzx import WatersConvertException, vendor, waters_convert
+from mzx import WatersConvertException, vendor, waters_convert
 
 
 @pytest.mark.parametrize(

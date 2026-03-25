@@ -23,96 +23,124 @@ mzx
         :alt: PyPI - Downloads
 
 
-Installing
-----------
+What it does
+------------
 
-System Requirements:
+**mzx** wraps `msconvert` from `ProteoWizard <https://proteowizard.sourceforge.io/>`_ inside Docker so you can convert vendor raw formats to open formats (mzML, MGF, mzXML, …) from the command line or an optional GUI.
 
-* Docker
-* Python3.10+ (Contains `PEP 636 <https://peps.python.org/pep-0636/>`_ )
-* Your favorite Python package manager (uv, pip, poetry, ...)
+Prerequisites
+-------------
 
-Install and update using `pip`\:
+* **Docker** — installed *and running* (the CLI calls ``docker run`` to execute msconvert).
+* **Python 3.10+**
+* **pip**, **uv**, or another PEP 517–compatible installer
+
+Install
+-------
 
 .. code-block:: console
 
         pip install -U mzx
 
-Usage
------
+Quick start
+-----------
 
-To run the cli command:
+#. Ensure Docker is running (``docker info`` should succeed).
+#. Convert a Thermo ``.raw`` file to mzML (default output format):
 
-.. code-block:: console
+   .. code-block:: console
 
-        mzx --type mgf /path/to/data.mgf
+        mzx /path/to/data.raw
 
-This will convert the `mgf` data to `mzml` by default.
+   The mzML is written next to the input file (same directory, ``.mzML`` extension).
 
-To run the gui:
+#. To choose another output format, set ``--type`` to ``mzml``, ``mgf``, or ``mzxml``:
+
+   .. code-block:: console
+
+        mzx --type mgf /path/to/data.raw
+
+See ``mzx --help`` for peak picking, indexing, Waters lockmass options, and more.
+
+GUI (experimental)
+------------------
+
+After install, start the GUI:
 
 .. code-block:: console
 
         mzx-gui
 
-Note: The gui is experimental
-
-You can also call the command from the module itself:
-
-.. code-block:: console
-
-        python -m mzx.cli /path/to/data.raw
+If the ``mzx-gui`` command is not on your ``PATH`` (common on Windows), use either:
 
 .. code-block:: console
 
         python -m mzx.gui
 
-Vendor Support
+or the Python Launcher for Windows:
+
+.. code-block:: doscon
+
+        py -m mzx.gui
+
+The CLI can always be run as ``python -m mzx`` (same as the ``mzx`` command).
+
+Vendor support
 --------------
 
-mzx utilizes proteowizard, and supports the following vendors: Agilent, Bruker, Sciex, Shimadzu, Thermo, and UIMF.
+Conversion uses ProteoWizard; supported vendors include Agilent, Bruker, Sciex, Shimadzu, Thermo, Waters, and UIMF. See the `ProteoWizard FAQ <https://proteowizard.sourceforge.io/faq.html>`_ for vendor-specific notes.
 
-For more information, please see the `proteowizard FAQ <https://proteowizard.sourceforge.io/faq.html>`
+Supported file formats (examples)
+---------------------------------
 
-Supported File Formats
-----------------------
-* .mgf
-* .mzML
-* .raw (Thermo)
-* .wiff (Sciex)
+* ``.mgf``
+* ``.mzML``
+* ``.raw`` (Thermo)
+* ``.wiff`` (Sciex)
 
 Features
 --------
-* Convert between various mass spectrometry file formats
-* Supports vendor formats: Agilent, Bruker, Sciex, etc.
-* CLI and experimental GUI for ease of use
+
+* Convert between common mass spectrometry interchange formats via msconvert
+* Vendor formats: Agilent, Bruker, Sciex, Thermo, Waters, and others supported by ProteoWizard
+* CLI and experimental GUI
 
 Documentation
 -------------
-Full documentation is available at `mzx.readthedocs.io <https://mzx.readthedocs.io/en/latest>`_
 
-Developer setup
----------------
+Full documentation: `mzx.readthedocs.io <https://mzx.readthedocs.io/en/latest>`_
 
-If you have uv installed, then you can a venv setup by running\:
+Development
+-----------
+
+From a clone of the repo, using `uv <https://docs.astral.sh/uv/>`_ (recommended):
 
 .. code-block:: console
 
         make setup
-
-While making changes to mzx, you can install/uninstall it from your local
-
-.. code-block:: console
-
+        source .venv/bin/activate   # Windows: .venv\Scripts\activate
         make install
 
+``make setup`` creates ``.venv`` and installs development dependencies from ``requirements.txt``. ``make install`` installs **mzx** in editable mode.
+
+Without ``make``, the same steps are:
+
 .. code-block:: console
 
-        make uninstall
+        uv venv
+        source .venv/bin/activate
+        uv pip install -r requirements.txt
+        uv pip install -e .
 
-Tests
------
+Run tests:
 
 .. code-block:: console
 
         make test
+
+Other useful targets: ``make lint``, ``make help``.
+
+License
+-------
+
+GNU General Public License v3 — see ``LICENSE``.

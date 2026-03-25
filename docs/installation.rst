@@ -8,38 +8,39 @@ Installation
 Stable release
 --------------
 
-To install mzx, run this command in your terminal:
+To install the latest release:
 
 .. code-block:: console
 
     $ pip install mzx
 
-This is the preferred method to install mzx, as it will always install the most recent stable release.
-
-If you don't have `pip`_ installed, this `Python installation guide`_ can guide
-you through the process.
-
-.. _pip: https://pip.pypa.io
-.. _Python installation guide: http://docs.python-guide.org/en/latest/starting/installation/
+Use a virtual environment if you do not want packages installed into your system Python. If you need help installing Python or ``pip``, see the `Python packaging user guide <https://packaging.python.org/en/latest/tutorials/installing-packages/>`_.
 
 
-From sources
-------------
+Prerequisites
+-------------
 
-The sources for mzx can be downloaded from the `Github repo`_.
-
-You can either clone the public repository:
-
-.. code-block:: console
-
-    $ git clone git@github.com:mass-matrix/mzx.git
+* **Python 3.10 or newer**
+* **Docker** — must be installed and the daemon running. mzx runs ProteoWizard's ``msconvert`` inside a container (see the main README for the image name).
 
 
-Once you have a copy of the source, you can install it with:
+From source (contributors)
+--------------------------
+
+Clone the repository (HTTPS works without SSH keys):
 
 .. code-block:: console
 
-    $ python setup.py install
+    $ git clone https://github.com/mass-matrix/mzx.git
+    $ cd mzx
 
+Create a virtual environment and install dependencies, then install mzx in editable mode:
 
-.. _Github repo: https://github.com/mass-matrix/mzx
+.. code-block:: console
+
+    $ python -m venv .venv
+    $ source .venv/bin/activate
+    $ pip install -r requirements.txt
+    $ pip install -e .
+
+If you use `uv <https://docs.astral.sh/uv/>`_, you can run ``make setup`` and ``make install`` from the project root instead (see ``README.rst``).
