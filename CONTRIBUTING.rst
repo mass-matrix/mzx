@@ -38,9 +38,7 @@ and "help wanted" is open to whoever wants to implement it.
 Write Documentation
 ~~~~~~~~~~~~~~~~~~~
 
-Healthy-API could always use more documentation, whether as part of the
-official Healthy-API docs, in docstrings, or even on the web in blog posts,
-articles, and such.
+mzx could always use more documentation, whether in the Sphinx docs under ``docs/``, in docstrings, or in ``README.rst``.
 
 Submit Feedback
 ~~~~~~~~~~~~~~~
@@ -57,18 +55,26 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up `mzx` for local development.
+Ready to contribute? Here's how to set up **mzx** for local development.
 
-1. Fork the `mzx` repo on GitHub.
+1. Fork the `mzx`_ repo on GitHub.
 2. Clone your fork locally::
 
-    $ git clone git@github.com:your_name_here/mzx.git
+    $ git clone https://github.com/your_name_here/mzx.git
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
+3. Create a virtual environment and install dependencies. With `uv`_ (used by the Makefile)::
 
-    $ mkvirtualenv mzx
     $ cd mzx/
-    $ python setup.py develop
+    $ make setup
+    $ source .venv/bin/activate
+    $ make install
+
+   Or with plain pip::
+
+    $ python -m venv .venv
+    $ source .venv/bin/activate
+    $ pip install -r requirements.txt
+    $ pip install -e .
 
 4. Create a branch for local development::
 
@@ -76,13 +82,11 @@ Ready to contribute? Here's how to set up `mzx` for local development.
 
    Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox::
+5. Before opening a PR, run the checks the project uses::
 
-    $ flake8 mzx tests
-    $ python setup.py test or py.test
-    $ tox
-
-   To get flake8 and tox, just pip install them into your virtualenv.
+    $ make lint
+    $ make mypy
+    $ make test
 
 6. Commit your changes and push your branch to GitHub::
 
@@ -92,20 +96,22 @@ Ready to contribute? Here's how to set up `mzx` for local development.
 
 7. Submit a pull request through the GitHub website.
 
+.. _mzx: https://github.com/mass-matrix/mzx
+.. _uv: https://docs.astral.sh/uv/
+
 Pull Request Guidelines
 -----------------------
 
 Before you submit a pull request, check that it meets these guidelines:
 
-1. The pull request should include tests.
+1. The pull request should include tests when practical.
 2. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and add the
-   feature to the list in README.rst.
+   feature to the list in ``README.rst`` if it is user-facing.
 
 Tips
 ----
 
 To run a subset of tests::
 
-$ py.test tests.test_mzx
-
+    $ python -m pytest tests/test_vendor.py -v

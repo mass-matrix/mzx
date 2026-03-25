@@ -1,4 +1,4 @@
-from src import mzx
+import mzx
 
 
 def test_modify_waters_scan_header():

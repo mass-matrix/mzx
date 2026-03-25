@@ -32,10 +32,13 @@ dynamic = ["version"]
 
 [project.scripts]
 mzx = "mzx.cli:main"
+
+# gui_scripts: GUI launcher uses pythonw on Windows (no extra console window).
+[project.entry-points.gui_scripts]
 mzx-gui = "mzx.gui:main"
 
 [project.urls]
-Documentation = "https://readthedocs.org/projects/mzx"
+Documentation = "https://mzx.readthedocs.io/en/latest/"
 "Source Code" = "https://github.com/mass-matrix/mzx"
 "Issue Tracker" = "https://github.com/mass-matrix/mzx/issues"
 

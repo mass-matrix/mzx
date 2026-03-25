@@ -1,9 +1,9 @@
 import mock
 import subprocess
-from src.mzx import docker  # Adjust to your module's path
+from mzx import docker
 
 
-@mock.patch("src.mzx.docker.subprocess.run", return_value=None)
+@mock.patch("mzx.docker.subprocess.run", return_value=None)
 def test_docker_running(mock_run):
     """Test the case where Docker is running successfully."""
     result = docker.check_running()
@@ -14,7 +14,7 @@ def test_docker_running(mock_run):
     assert result is True
 
 
-@mock.patch("src.mzx.docker.subprocess.run")
+@mock.patch("mzx.docker.subprocess.run")
 def test_docker_not_running(mock_run):
     """Test the case where Docker is not running and command fails."""
     # Mock subprocess.run to raise CalledProcessError to simulate failure

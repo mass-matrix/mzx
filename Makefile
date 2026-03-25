@@ -1,4 +1,4 @@
-.PHONY: clean clean-build clean-pyc clean-test dist docs help install lint mypy release servedocs setup test uninstall
+.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -58,22 +58,22 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html
 
-format:
+format: ## format source with ruff
 	ruff format .
 
-help:
+help: ## show this help
 	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-install:
+install: ## editable install of mzx (use after `make setup` or with uv/pip in your env)
 	uv pip install -e .
 
-lint:
+lint: ## run ruff linter
 	ruff check .
 
-lint-fix:
+lint-fix: ## auto-fix ruff issues where possible
 	ruff check --fix .
 
-mypy:
+mypy: ## typecheck src/
 	mypy --strict-optional --check-untyped-defs --disallow-incomplete-defs --warn-unused-configs --follow-imports=normal src/
 
 release: dist ## package and upload a release
@@ -85,12 +85,12 @@ release-test: dist ## package and upload a release
 servedocs: docs ## compile the docs watching for changes
 	watchmedo shell-command -p '*.rst' -c '$(MAKE) -C docs html' -R -D .
 
-setup:
+setup: ## create .venv and install dev dependencies from requirements.txt
 	uv venv
 	uv pip install -r requirements.txt
 
-test:
+test: ## run tests with coverage
 	python -m pytest --capture=sys --capture=fd --cov=src/ -vv tests/
 
-uninstall:
+uninstall: ## remove mzx from the active environment
 	uv pip uninstall mzx
