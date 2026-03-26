@@ -27,7 +27,7 @@ more-itertools==10.5.0
 mypy==1.11.2
 mypy-extensions==1.0.0
 nh3==0.2.18
-packaging==24.1
+packaging==24.2
 pkginfo==1.10.0
 pluggy==1.5.0
 pycparser==2.22
@@ -58,7 +58,7 @@ sphinxcontrib-htmlhelp==2.1.0
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
-twine==5.1.1
+twine==6.1.0
 typing-extensions==4.12.2
 urllib3==2.2.3
 zipp==3.20.2
