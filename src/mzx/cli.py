@@ -1,6 +1,7 @@
 import argparse
+import os
 
-from . import convert_raw_file, types, vendor
+from . import convert_raw_file, export_chromatograms, extract_tic_from_mzml, get_chromatogram_info, types, vendor
 from loguru import logger
 
 
@@ -83,6 +84,12 @@ def main():
         default=0.1,
         help="Lockmass tolerance in ppm.",
     )
+    parser.add_argument(
+        "--chromatograms",
+        action="store_true",
+        default=False,
+        help="Export Waters chromatograms (UV, pressure, etc.) to CSV.",
+    )
     parser.add_argument("--output", type=str, default=None, help="The output file.")
     args = parser.parse_args()
     vendor_name = vendor.vendor_name_from_file(args.file)
@@ -106,11 +113,24 @@ def main():
         "lockmass_function_exclude": None,
     }
 
+    mzml_path = None
     try:
-        _status = convert_raw_file(params)
+        mzml_path = convert_raw_file(params)
     except Exception as e:
         logger.error("Raw file conversion failed!")
         logger.error(str(e))
+
+    if args.chromatograms:
+        if vendor_name == "waters":
+            chrom_info = get_chromatogram_info(args.file)
+            if not chrom_info:
+                logger.warning("No chromatogram metadata found in Waters file.")
+            else:
+                exported = export_chromatograms(args.file, chrom_info)
+                logger.info(f"Exported {len(exported)} chromatogram(s).")
+
+        if mzml_path and os.path.exists(mzml_path):
+            extract_tic_from_mzml(mzml_path)
 
 
 if __name__ == "__main__":
