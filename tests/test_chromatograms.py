@@ -1,7 +1,6 @@
 import csv
 import os
 import struct
-import tempfile
 
 from mzx import (
     export_chromatograms,

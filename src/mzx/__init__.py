@@ -254,7 +254,6 @@ def extract_tic_from_mzml(mzml_path, output_csv=None):
         base = os.path.splitext(mzml_path)[0]
         output_csv = f"{base}_TIC.csv"
 
-    ns = {"ms": "http://psi.hupo.org/ms/mzml"}
     times = []
     tics = []
 
