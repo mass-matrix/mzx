@@ -1,7 +1,14 @@
 import argparse
 import os
 
-from . import convert_raw_file, export_chromatograms, extract_tic_from_mzml, get_chromatogram_info, types, vendor
+from . import (
+    convert_raw_file,
+    export_chromatograms,
+    extract_tic_from_mzml,
+    get_chromatogram_info,
+    types,
+    vendor,
+)
 from loguru import logger
 
 

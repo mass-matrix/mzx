@@ -257,7 +257,9 @@ def extract_tic_from_mzml(mzml_path, output_csv=None):
     times = []
     tics = []
 
-    for event, elem in etree.iterparse(mzml_path, events=("end",), tag="{http://psi.hupo.org/ms/mzml}spectrum"):
+    for event, elem in etree.iterparse(
+        mzml_path, events=("end",), tag="{http://psi.hupo.org/ms/mzml}spectrum"
+    ):
         rt = None
         tic = None
         # Check cvParams directly under spectrum and under scanList/scan
