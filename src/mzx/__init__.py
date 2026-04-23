@@ -1,9 +1,14 @@
 __version__ = "0.3.2"
 
+import csv
 import os
 import re
 import shlex
+import struct
 import subprocess
+from pathlib import Path
+
+from lxml import etree
 from loguru import logger
 
 from . import types
@@ -85,6 +90,196 @@ def process_waters_scan_headers(file_path):
 
     with open(file_path, "w") as file:
         file.writelines(modified_lines)
+
+
+def parse_chroinf(path):
+    """
+    Parse a Waters _CHROMS.INF file.
+
+    Reads channel metadata (name and unit) for each analog data file.
+
+    Args:
+        path: Path to the _CHROMS.INF file.
+
+    Returns:
+        List of [name, unit] pairs for each chromatogram channel.
+    """
+    analog_info = []
+    file_size = os.path.getsize(path)
+    with open(path, "rb") as f:
+        f.seek(0x84)
+        while f.tell() < file_size:
+            raw = f.read(0x55)
+            if not raw:
+                break
+            line = re.sub(
+                r"[\0-\x04]|\$CC\$|\([0-9]*\)", "", raw.decode("latin-1")
+            ).strip()
+            parts = line.split(",")
+            info = [parts[0]]
+            if len(parts) == 6:
+                info.append(parts[5])
+            analog_info.append(info)
+    return analog_info
+
+
+def parse_chrodat(path):
+    """
+    Parse a Waters _CHRO*.DAT binary file.
+
+    Each sample is 8 bytes: two little-endian 32-bit floats (time, intensity).
+    Data starts at offset 0x80.
+
+    Args:
+        path: Path to the _CHRO*.DAT file.
+
+    Returns:
+        Tuple of (times, intensities) as lists of floats, or None if empty.
+    """
+    data_start = 0x80
+    file_size = os.path.getsize(path)
+    num_samples = (file_size - data_start) // 8
+    if num_samples == 0:
+        return None
+
+    times = []
+    intensities = []
+    with open(path, "rb") as f:
+        f.seek(data_start)
+        for _ in range(num_samples):
+            t, v = struct.unpack("<ff", f.read(8))
+            times.append(t)
+            intensities.append(v)
+    return times, intensities
+
+
+def get_chromatogram_info(raw_dir):
+    """
+    Locate and parse _CHROMS.INF from a Waters .raw directory.
+
+    Args:
+        raw_dir: Path to the Waters .raw directory.
+
+    Returns:
+        List of chromatogram channel metadata from parse_chroinf.
+    """
+    for f in os.listdir(raw_dir):
+        if f.lower() == "_chroms.inf":
+            return parse_chroinf(os.path.join(raw_dir, f))
+    return []
+
+
+def write_chrom_csv(filename, times, intensities):
+    """
+    Write chromatogram data to a CSV file.
+
+    Args:
+        filename: Output CSV file path.
+        times: List of time values.
+        intensities: List of intensity values.
+    """
+    with open(filename, mode="w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["time", "intensity"])
+        writer.writeheader()
+        for t, v in zip(times, intensities):
+            writer.writerow({"time": f"{t:.6f}", "intensity": f"{v:.6f}"})
+
+
+def export_chromatograms(raw_dir, chrom_info):
+    """
+    Extract and export all chromatogram channels from a Waters .raw directory to CSV.
+
+    Output files are written to the parent directory of the .raw folder,
+    named {raw_name}_{channel_name}.csv.
+
+    Args:
+        raw_dir: Path to the Waters .raw directory.
+        chrom_info: Channel metadata from get_chromatogram_info().
+
+    Returns:
+        List of output CSV file paths.
+    """
+    parent_path = Path(raw_dir).parent.absolute()
+    raw_name = Path(raw_dir).name
+    pattern = re.compile(r"_chro(\d+)", re.IGNORECASE)
+    output_files = []
+
+    for f in sorted(os.listdir(raw_dir)):
+        f_base, f_ext = os.path.splitext(f)
+        if f_ext.lower() != ".dat":
+            continue
+        match = pattern.match(f_base)
+        if not match:
+            continue
+
+        number = int(match.group(1))
+        result = parse_chrodat(os.path.join(raw_dir, f))
+        if result is None:
+            logger.warning(f"Skipping empty chromatogram file: {f}")
+            continue
+
+        times, intensities = result
+        # Convert times from minutes to seconds
+        times = [t * 60 for t in times]
+
+        if number <= len(chrom_info):
+            channel_name = chrom_info[number - 1][0]
+        else:
+            channel_name = f"channel_{number}"
+
+        csv_name = f"{raw_name}_{channel_name}.csv"
+        csv_path = str(parent_path / csv_name)
+        write_chrom_csv(csv_path, times, intensities)
+        logger.info(f"Exported chromatogram: {csv_path}")
+        output_files.append(csv_path)
+
+    return output_files
+
+
+def extract_tic_from_mzml(mzml_path, output_csv=None):
+    """
+    Extract the Total Ion Current (TIC) from an mzML file and write to CSV.
+
+    Parses each spectrum element for scan start time and total ion current.
+    Times are converted from minutes to seconds.
+
+    Args:
+        mzml_path: Path to the mzML file.
+        output_csv: Output CSV path. Defaults to {mzml_base}_TIC.csv.
+
+    Returns:
+        Path to the output CSV file.
+    """
+    if output_csv is None:
+        base = os.path.splitext(mzml_path)[0]
+        output_csv = f"{base}_TIC.csv"
+
+    times = []
+    tics = []
+
+    for event, elem in etree.iterparse(
+        mzml_path, events=("end",), tag="{http://psi.hupo.org/ms/mzml}spectrum"
+    ):
+        rt = None
+        tic = None
+        # Check cvParams directly under spectrum and under scanList/scan
+        for cv in elem.iterdescendants("{http://psi.hupo.org/ms/mzml}cvParam"):
+            acc = cv.get("accession")
+            if acc == "MS:1000016":  # scan start time
+                rt = float(cv.get("value"))
+                unit = cv.get("unitName", "minute")
+                if unit == "minute":
+                    rt *= 60.0
+            elif acc == "MS:1000285":  # total ion current
+                tic = float(cv.get("value"))
+        if rt is not None and tic is not None:
+            times.append(rt)
+            tics.append(tic)
+        elem.clear()
+
+    write_chrom_csv(output_csv, times, tics)
+    logger.info(f"Exported TIC: {output_csv} ({len(times)} scans)")
+    return output_csv
 
 
 def waters_convert(params: types.TConfig) -> str:
