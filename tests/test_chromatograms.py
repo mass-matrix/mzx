@@ -4,6 +4,7 @@ import struct
 
 from mzx import (
     export_chromatograms,
+    extract_tic_from_mzml,
     get_chromatogram_info,
     parse_chrodat,
     parse_chroinf,
@@ -152,3 +153,75 @@ class TestExportChromatograms:
         chrom_info = get_chromatogram_info(str(raw_dir))
         exported = export_chromatograms(str(raw_dir), chrom_info)
         assert len(exported) == 0
+
+
+def _build_mzml(spectra):
+    """Build a minimal mzML XML string with given spectra.
+
+    Each spectrum is a dict with keys: rt (minutes), tic.
+    """
+    lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<mzML xmlns="http://psi.hupo.org/ms/mzml">',
+        "  <run>",
+        f'    <spectrumList count="{len(spectra)}">',
+    ]
+    for i, s in enumerate(spectra):
+        lines.append(f'      <spectrum index="{i}">')
+        lines.append(f'        <cvParam accession="MS:1000285" value="{s["tic"]}"/>')
+        lines.append("        <scanList>")
+        lines.append("          <scan>")
+        lines.append(
+            f'            <cvParam accession="MS:1000016" value="{s["rt"]}"'
+            f' unitName="minute"/>'
+        )
+        lines.append("          </scan>")
+        lines.append("        </scanList>")
+        lines.append("      </spectrum>")
+    lines.append("    </spectrumList>")
+    lines.append("  </run>")
+    lines.append("</mzML>")
+    return "\n".join(lines)
+
+
+class TestExtractTicFromMzml:
+    def test_extracts_tic(self, tmp_path):
+        mzml_file = tmp_path / "test.mzML"
+        mzml_file.write_text(
+            _build_mzml(
+                [
+                    {"rt": 1.0, "tic": 1000.0},
+                    {"rt": 2.0, "tic": 2000.0},
+                    {"rt": 3.0, "tic": 1500.0},
+                ]
+            )
+        )
+        output = extract_tic_from_mzml(str(mzml_file))
+        assert output == str(tmp_path / "test_TIC.csv")
+        assert os.path.exists(output)
+
+        with open(output) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert len(rows) == 3
+        # RT should be converted from minutes to seconds
+        assert abs(float(rows[0]["time"]) - 60.0) < 1e-4
+        assert abs(float(rows[1]["intensity"]) - 2000.0) < 1e-4
+
+    def test_custom_output_path(self, tmp_path):
+        mzml_file = tmp_path / "test.mzML"
+        mzml_file.write_text(_build_mzml([{"rt": 1.0, "tic": 500.0}]))
+        custom_out = str(tmp_path / "custom_tic.csv")
+        output = extract_tic_from_mzml(str(mzml_file), output_csv=custom_out)
+        assert output == custom_out
+        assert os.path.exists(custom_out)
+
+    def test_empty_mzml(self, tmp_path):
+        mzml_file = tmp_path / "empty.mzML"
+        mzml_file.write_text(_build_mzml([]))
+        output = extract_tic_from_mzml(str(mzml_file))
+        assert os.path.exists(output)
+        with open(output) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert len(rows) == 0
