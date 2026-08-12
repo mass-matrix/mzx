@@ -15,6 +15,7 @@ import sys
 from loguru import logger
 
 from . import (
+    __version__,
     convert_file,
     export_chromatograms,
     extract_tic_from_mzml,
@@ -38,6 +39,12 @@ def main():
             "Default path uses ProteoWizard/msconvert via Docker. "
             "Use --native for experimental conversion without Docker."
         )
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument("file", type=str, help="The file to convert.")
     parser.add_argument("--type", type=str, default="mzml", help="The output format.")
