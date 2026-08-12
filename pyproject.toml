@@ -30,6 +30,18 @@ requires-python = ">=3.10"
 dependencies = ["loguru>=0.5.0", "lxml>=4.6.0", "pyside6>=6.0"]
 dynamic = ["version"]
 
+[project.optional-dependencies]
+native = [
+  "opentfraw>=1.0",
+  "openwraw>=1.0",
+  "openaraw>=0.1",
+  "opentimstdf>=1.0",
+]
+thermo = ["opentfraw>=1.0"]
+waters = ["openwraw>=1.0"]
+agilent = ["openaraw>=0.1"]
+bruker = ["opentimstdf>=1.0"]
+
 [project.scripts]
 mzx = "mzx.cli:main"
 

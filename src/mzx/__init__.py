@@ -24,6 +24,41 @@ class RawFileConversionError(Exception):
     pass
 
 
+def convert_file(params: types.TConfig, native: bool = False) -> str:
+    """
+    Convert a vendor acquisition to an open format.
+
+    By default uses ProteoWizard ``msconvert`` via Docker (mzML, MGF, mzXML).
+    When ``native=True``, uses built-in vendor parsers (experimental) and writes
+    mzML without Docker.
+
+    Args:
+        params: Conversion configuration (:class:`~mzx.types.TConfig`).
+        native: If True, use experimental native converters instead of Docker.
+
+    Returns:
+        Absolute path to the output file.
+
+    Raises:
+        RawFileConversionError: When the Docker/msconvert path fails.
+        NativeConversionError: When the native path fails (from :mod:`mzx.convert`).
+
+    Example::
+
+        from mzx import convert_file
+
+        out = convert_file(params, native=True)
+
+    Native conversion supports Thermo, Waters, Agilent, and Bruker only and requires
+    optional dependencies (``pip install mzx[native]``).
+    """
+    if native:
+        from .convert import convert_native
+
+        return convert_native(params)
+    return convert_raw_file(params)
+
+
 def run_cmd(cmd):
     """
     Run a command and return the output.

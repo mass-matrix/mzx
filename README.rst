@@ -26,14 +26,21 @@ mzx
 What it does
 ------------
 
-**mzx** wraps `msconvert` from `ProteoWizard <https://proteowizard.sourceforge.io/>`_ inside Docker so you can convert vendor raw formats to open formats (mzML, MGF, mzXML, …) from the command line or an optional GUI.
+**mzx** converts vendor mass spectrometry files to open formats from the command line
+or an optional GUI. Two paths are available:
+
+* **Default** — wraps `msconvert` from `ProteoWizard <https://proteowizard.sourceforge.io/>`_
+  inside Docker (mzML, MGF, mzXML, …).
+* **Experimental native** — pure-Python/Rust vendor parsers with no Docker
+  (``--native``; mzML output only).
 
 Prerequisites
 -------------
 
-* **Docker** — installed *and running* (the CLI calls ``docker run`` to execute msconvert).
 * **Python 3.10+**
 * **pip**, **uv**, or another PEP 517–compatible installer
+* **Docker** — required for the default path (``docker info`` must succeed).
+  Not required when using ``--native``.
 
 Install
 -------
@@ -42,8 +49,18 @@ Install
 
         pip install -U mzx
 
+For experimental native conversion, install optional vendor parsers:
+
+.. code-block:: console
+
+        pip install mzx[native]     # Thermo, Waters, Agilent, Bruker
+        pip install mzx[thermo]     # or per-vendor extras
+
 Quick start
 -----------
+
+Default path (Docker / ProteoWizard)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Ensure Docker is running (``docker info`` should succeed).
 #. Convert a Thermo ``.raw`` file to mzML (default output format):
@@ -61,6 +78,21 @@ Quick start
         mzx --type mgf /path/to/data.raw
 
 See ``mzx --help`` for peak picking, indexing, Waters lockmass options, and more.
+
+Native conversion (experimental)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Convert without Docker using built-in vendor parsers (mzML only):
+
+.. code-block:: console
+
+        pip install mzx[native]
+        mzx --native /path/to/data.raw
+        mzx --native --vendor waters /path/to/sample.raw/
+        mzx --native --output /tmp/out.mzML /path/to/data.raw
+
+Supported native vendors: Thermo, Waters, Agilent, and Bruker. Output may differ
+from ProteoWizard/msconvert. See ``docs/usage.rst`` for the Python API.
 
 GUI (experimental)
 ------------------
@@ -88,7 +120,19 @@ The CLI can always be run as ``python -m mzx`` (same as the ``mzx`` command).
 Vendor support
 --------------
 
-Conversion uses ProteoWizard; supported vendors include Agilent, Bruker, Sciex, Shimadzu, Thermo, Waters, and UIMF. See the `ProteoWizard FAQ <https://proteowizard.sourceforge.io/faq.html>`_ for vendor-specific notes.
+ProteoWizard (default)
+~~~~~~~~~~~~~~~~~~~~~~
+
+The default Docker path supports Agilent, Bruker, Sciex, Shimadzu, Thermo, Waters,
+and UIMF. See the `ProteoWizard FAQ <https://proteowizard.sourceforge.io/faq.html>`_
+for vendor-specific notes.
+
+Native (experimental)
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``--native`` path supports Thermo ``.raw`` files, Waters ``.raw/`` directories,
+Agilent ``.d/`` directories, and Bruker timsTOF ``.d/`` bundles. Sciex and Shimadzu
+are not supported natively.
 
 Supported file formats (examples)
 ---------------------------------
@@ -101,7 +145,8 @@ Supported file formats (examples)
 Features
 --------
 
-* Convert between common mass spectrometry interchange formats via msconvert
+* Convert between common mass spectrometry interchange formats via msconvert (default)
+* Experimental native conversion without Docker (``--native``; mzML only)
 * Vendor formats: Agilent, Bruker, Sciex, Thermo, Waters, and others supported by ProteoWizard
 * CLI and experimental GUI
 

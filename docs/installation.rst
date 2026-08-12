@@ -21,7 +21,45 @@ Prerequisites
 -------------
 
 * **Python 3.10 or newer**
-* **Docker** — must be installed and the daemon running. mzx runs ProteoWizard's ``msconvert`` inside a container (see the main README for the image name).
+* **Docker** — required for the **default** CLI path. mzx runs ProteoWizard's
+  ``msconvert`` inside a container (see the main README for the image name).
+  Docker is **not** required when using ``--native`` (experimental native conversion).
+
+
+Optional: native conversion
+---------------------------
+
+Experimental native conversion uses optional vendor parser packages. Install all
+supported vendors or only what you need:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Extra
+     - Packages
+     - Vendors
+   * - ``native``
+     - opentfraw, openwraw, openaraw, opentimstdf
+     - Thermo, Waters, Agilent, Bruker
+   * - ``thermo``
+     - opentfraw
+     - Thermo ``.raw`` files
+   * - ``waters``
+     - openwraw
+     - Waters ``.raw/`` directories
+   * - ``agilent``
+     - openaraw
+     - Agilent ``.d/`` directories
+   * - ``bruker``
+     - opentimstdf
+     - Bruker timsTOF ``.d/`` bundles
+
+Examples:
+
+.. code-block:: console
+
+    $ pip install mzx[native]
+    $ pip install mzx[thermo,waters]
 
 
 From source (contributors)
@@ -42,5 +80,11 @@ Create a virtual environment and install dependencies, then install mzx in edita
     $ source .venv/bin/activate
     $ pip install -r requirements.txt
     $ pip install -e .
+
+To develop or test native conversion, also install optional parsers:
+
+.. code-block:: console
+
+    $ pip install -e ".[native]"
 
 If you use `uv <https://docs.astral.sh/uv/>`_, you can run ``make setup`` and ``make install`` from the project root instead (see ``README.rst``).

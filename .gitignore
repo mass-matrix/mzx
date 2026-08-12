@@ -2,6 +2,8 @@
 **.mxML
 **.mzml
 **.d
+!tests/convert/fixtures/
+!tests/convert/fixtures/**
 results
 .mypy_cache
 rust*
