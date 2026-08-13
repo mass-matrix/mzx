@@ -49,6 +49,11 @@ def apply_peak_picking(
         Filtered :class:`~mzx.convert.base.Spectrum` instances.
     """
     for spectrum in spectra:
+        # Never re-pick data that is already centroided (e.g. vendor centroids);
+        # local-maxima on a sparse peak list would drop legitimate peaks.
+        if spectrum.is_centroid:
+            yield spectrum
+            continue
         should_pick = (
             mode == "all"
             or (mode == "ms1" and spectrum.ms_level == 1)
@@ -69,4 +74,12 @@ def apply_peak_picking(
             precursor_mz=spectrum.precursor_mz,
             precursor_charge=spectrum.precursor_charge,
             collision_energy=spectrum.collision_energy,
+            total_ion_current=spectrum.total_ion_current,
+            base_peak_mz=spectrum.base_peak_mz,
+            base_peak_intensity=spectrum.base_peak_intensity,
+            filter_string=spectrum.filter_string,
+            ion_injection_time_ms=spectrum.ion_injection_time_ms,
+            scan_window_lower=spectrum.scan_window_lower,
+            scan_window_upper=spectrum.scan_window_upper,
+            is_centroid=True,
         )

@@ -1,24 +1,25 @@
 """Minimal mzML 1.1 writer and reader using lxml.
 
 No vendor libraries are used. Binary arrays are written as 64-bit float,
-base64-encoded, uncompressed — the format consumed by
-:func:`parse_spectra_from_mzml` for round-trip tests.
+base64-encoded, optionally zlib-compressed.
 """
 
 from __future__ import annotations
 
 import base64
 import struct
+import zlib
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Mapping, Optional, cast
 
 from lxml import etree
 
-from .base import Chromatogram, Spectrum
+from .base import Chromatogram, Polarity, Spectrum
 
 MZML_NS = "http://psi.hupo.org/ms/mzml"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
-NSMAP = {None: MZML_NS, "xsi": XSI_NS}
+# lxml uses None for the default xmlns; stubs only accept Mapping[str, str].
+NSMAP = cast(Mapping[str, str], {None: MZML_NS, "xsi": XSI_NS})
 
 
 def _cv(
@@ -44,10 +45,15 @@ def _cv(
     return etree.SubElement(parent, f"{{{MZML_NS}}}cvParam", attrs)
 
 
-def _encode_binary(values: list[float]) -> tuple[str, int]:
+def _encode_binary(values: list[float], compress: bool = False) -> tuple[str, int]:
     """Encode float64 little-endian array as base64; return (text, decoded_byte_len)."""
     raw = struct.pack(f"<{len(values)}d", *values)
+    if compress:
+        raw = zlib.compress(raw)
     return base64.b64encode(raw).decode("ascii"), len(raw)
+
+
+_COMPRESS_BINARY = False
 
 
 def _binary_array(
@@ -64,21 +70,22 @@ def _binary_array(
             {"count": "0"},
         )
 
-    encoded, nbytes = _encode_binary(values)
+    encoded, nbytes = _encode_binary(values, compress=_COMPRESS_BINARY)
     bda = etree.SubElement(
         array_list,
         f"{{{MZML_NS}}}binaryDataArray",
         {"encodedLength": str(len(encoded))},
     )
     _cv(bda, "MS:1000523", "64-bit float")
-    _cv(bda, "MS:1000576", "no compression")
+    if _COMPRESS_BINARY:
+        _cv(bda, "MS:1000574", "zlib compression")
+    else:
+        _cv(bda, "MS:1000576", "no compression")
     _cv(bda, accession, name)
     binary = etree.SubElement(bda, f"{{{MZML_NS}}}binary")
     binary.text = encoded
-    # Update count
     count = len(array_list.findall(f"{{{MZML_NS}}}binaryDataArray"))
     array_list.set("count", str(count))
-    # Keep nbytes available for debugging via attribute (non-standard but harmless)
     bda.set("arrayLength", str(len(values)))
     _ = nbytes
 
@@ -98,7 +105,10 @@ def _add_spectrum(spectrum_list: etree._Element, spectrum: Spectrum) -> None:
         _cv(el, "MS:1000579", "MS1 spectrum")
     else:
         _cv(el, "MS:1000580", "MSn spectrum")
-    _cv(el, "MS:1000127", "centroid spectrum")
+    if spectrum.is_centroid:
+        _cv(el, "MS:1000127", "centroid spectrum")
+    else:
+        _cv(el, "MS:1000128", "profile spectrum")
     if spectrum.polarity == "positive":
         _cv(el, "MS:1000130", "positive scan")
     elif spectrum.polarity == "negative":
@@ -135,6 +145,40 @@ def _add_spectrum(spectrum_list: etree._Element, spectrum: Spectrum) -> None:
         unit_accession="UO:0000031",
         unit_name="minute",
     )
+    if spectrum.filter_string is not None:
+        _cv(scan, "MS:1000512", "filter string", spectrum.filter_string)
+    if spectrum.ion_injection_time_ms is not None:
+        _cv(
+            scan,
+            "MS:1000927",
+            "ion injection time",
+            f"{spectrum.ion_injection_time_ms}",
+            unit_accession="UO:0000028",
+            unit_name="millisecond",
+        )
+    if spectrum.scan_window_lower is not None or spectrum.scan_window_upper is not None:
+        scan_window_list = etree.SubElement(
+            scan, f"{{{MZML_NS}}}scanWindowList", {"count": "1"}
+        )
+        scan_window = etree.SubElement(scan_window_list, f"{{{MZML_NS}}}scanWindow")
+        if spectrum.scan_window_lower is not None:
+            _cv(
+                scan_window,
+                "MS:1000501",
+                "scan window lower limit",
+                f"{spectrum.scan_window_lower}",
+                unit_accession="MS:1000040",
+                unit_name="m/z",
+            )
+        if spectrum.scan_window_upper is not None:
+            _cv(
+                scan_window,
+                "MS:1000500",
+                "scan window upper limit",
+                f"{spectrum.scan_window_upper}",
+                unit_accession="MS:1000040",
+                unit_name="m/z",
+            )
 
     if spectrum.ms_level >= 2 and spectrum.precursor_mz is not None:
         precursor_list = etree.SubElement(
@@ -194,6 +238,7 @@ def write_mzml(
     chromatograms: Optional[Iterable[Chromatogram]] = None,
     metadata: Optional[dict] = None,
     indexed: bool = False,
+    compress: bool = False,
 ) -> str:
     """
     Write spectra (and optional chromatograms) to an mzML 1.1 file.
@@ -208,6 +253,7 @@ def write_mzml(
         metadata: Optional run metadata (``source_file``, ``vendor``,
             ``instrument_model``, ``software``).
         indexed: If True, wrap content in ``indexedmzML`` (offset placeholders).
+        compress: If True, use zlib compression for binary arrays.
 
     Returns:
         Absolute path to the written file.
@@ -218,6 +264,9 @@ def write_mzml(
 
         write_mzml("out.mzML", spectra, metadata={"source_file": "run.raw"})
     """
+    global _COMPRESS_BINARY
+    _COMPRESS_BINARY = compress
+
     metadata = metadata or {}
     spectra_list = list(spectra)
     chrom_list_data = list(chromatograms or [])
@@ -397,11 +446,12 @@ def parse_spectra_from_mzml(path: str | Path) -> list[Spectrum]:
         scan_id = el.get("id", f"scan={index + 1}")
         ms_level = 1
         rt_sec = 0.0
-        polarity = None
+        polarity: Polarity | None = None
         tic = None
         precursor_mz = None
         precursor_charge = None
         collision_energy = None
+        is_centroid = False
 
         for cv in el.findall(f"{{{MZML_NS}}}cvParam"):
             acc = cv.get("accession")
@@ -413,6 +463,8 @@ def parse_spectra_from_mzml(path: str | Path) -> list[Spectrum]:
                 polarity = "positive"
             elif acc == "MS:1000129":
                 polarity = "negative"
+            elif acc == "MS:1000127":
+                is_centroid = True
 
         for cv in el.findall(f".//{{{MZML_NS}}}cvParam"):
             acc = cv.get("accession")
@@ -457,6 +509,7 @@ def parse_spectra_from_mzml(path: str | Path) -> list[Spectrum]:
                 precursor_charge=precursor_charge,
                 collision_energy=collision_energy,
                 total_ion_current=tic,
+                is_centroid=is_centroid,
             )
         )
     return spectra

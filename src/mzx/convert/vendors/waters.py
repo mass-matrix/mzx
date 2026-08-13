@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-from ..base import Chromatogram, Spectrum, VendorConverter
+from ..base import Chromatogram, Spectrum, VendorConverter, spectrum_from_vendor_object
 
 
 class WatersConverter(VendorConverter):
@@ -169,7 +169,7 @@ class WatersConverter(VendorConverter):
         self._use_openwraw = False
 
     @staticmethod
-    def _from_mapping(index: int, spec: Any) -> Spectrum:
+    def _from_mapping(index: int, spec: object) -> Spectrum:
         if isinstance(spec, Spectrum):
             return Spectrum(
                 index=index,
@@ -183,22 +183,4 @@ class WatersConverter(VendorConverter):
                 precursor_charge=spec.precursor_charge,
                 collision_energy=spec.collision_energy,
             )
-        get = (
-            spec.get
-            if isinstance(spec, dict)
-            else lambda k, d=None: getattr(spec, k, d)
-        )
-        return Spectrum(
-            index=index,
-            scan_id=str(get("id", get("scan_id", f"scan={index + 1}"))),
-            ms_level=int(get("ms_level", get("msLevel", 1))),
-            retention_time_sec=float(
-                get("retention_time_sec", get("rt", get("retention_time", 0.0)))
-            ),
-            mz=list(get("mz", [])),
-            intensity=list(get("intensity", get("intensities", []))),
-            polarity=get("polarity"),
-            precursor_mz=get("precursor_mz"),
-            precursor_charge=get("precursor_charge"),
-            collision_energy=get("collision_energy"),
-        )
+        return spectrum_from_vendor_object(index, spec)

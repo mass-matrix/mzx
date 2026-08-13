@@ -64,4 +64,12 @@ def apply_lockmass(
             precursor_mz=spectrum.precursor_mz,
             precursor_charge=spectrum.precursor_charge,
             collision_energy=spectrum.collision_energy,
+            total_ion_current=spectrum.total_ion_current,
+            base_peak_mz=spectrum.base_peak_mz,
+            base_peak_intensity=spectrum.base_peak_intensity,
+            filter_string=spectrum.filter_string,
+            ion_injection_time_ms=spectrum.ion_injection_time_ms,
+            scan_window_lower=spectrum.scan_window_lower,
+            scan_window_upper=spectrum.scan_window_upper,
+            is_centroid=spectrum.is_centroid,
         )

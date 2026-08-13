@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
-from ..base import Chromatogram, Spectrum, VendorConverter
+from ..base import Chromatogram, Polarity, Spectrum, VendorConverter
 
 
 class ThermoConverter(VendorConverter):
@@ -36,7 +36,6 @@ class ThermoConverter(VendorConverter):
             ) from exc
 
         self._path = str(path_obj.resolve())
-        # Support both RawFile(path) constructor styles used across versions.
         if hasattr(opentfraw, "RawFile"):
             self._raw = opentfraw.RawFile(self._path)
         elif hasattr(opentfraw, "open"):
@@ -48,38 +47,73 @@ class ThermoConverter(VendorConverter):
         if self._raw is None:
             raise RuntimeError("ThermoConverter.open() must be called first")
 
-        # Prefer a high-level spectrum iterator when available.
-        if hasattr(self._raw, "iter_spectra"):
-            for i, spec in enumerate(self._raw.iter_spectra()):
-                yield self._from_mapping(i, spec)
-            return
-
         n_scans = self._scan_count()
         for i in range(n_scans):
             scan_number = i + 1
-            mz, intensity = self._peaks(scan_number)
             info = self._scan_info(scan_number)
+
+            mz_arr = info.get("mz", [])
+            int_arr = info.get("intensity", [])
+            mz = list(mz_arr) if hasattr(mz_arr, "__iter__") else []
+            intensity = list(int_arr) if hasattr(int_arr, "__iter__") else []
+
+            # Non-empty vendor arrays are centroided peaks; fall back to raw
+            # profile only when no vendor centroids are stored for the scan.
+            is_centroid = len(mz) > 0
+            if len(mz) == 0 and hasattr(self._raw, "profile"):
+                profile_mz, profile_int = self._raw.profile(scan_number)
+                mz = list(profile_mz)
+                intensity = list(profile_int)
+                is_centroid = False
+
+            polarity = self._parse_polarity(info.get("polarity"))
+
+            precursor_mz = info.get("precursor_mz")
+            if precursor_mz == 0.0:
+                precursor_mz = None
+
+            precursor_charge = info.get("charge")
+            if precursor_charge == 0:
+                precursor_charge = None
+
+            collision_energy = info.get("collision_energy")
+
+            tic = info.get("total_ion_current")
+            base_mz = info.get("base_peak_mz")
+            base_int = info.get("base_peak_intensity")
+
+            filter_str = info.get("filter_string")
+            ion_inject = info.get("ion_injection_time_ms")
+            low_mz = info.get("low_mz")
+            high_mz = info.get("high_mz")
+
             yield Spectrum(
                 index=i,
-                scan_id=str(info.get("id", f"scan={scan_number}")),
-                ms_level=int(info.get("ms_level", info.get("msLevel", 1))),
-                retention_time_sec=float(
-                    info.get(
-                        "retention_time_sec",
-                        info.get("rt", info.get("retention_time", 0.0)),
-                    )
-                ),
-                mz=list(mz),
-                intensity=list(intensity),
-                polarity=info.get("polarity"),
-                precursor_mz=info.get("precursor_mz"),
-                precursor_charge=info.get("precursor_charge"),
-                collision_energy=info.get("collision_energy"),
+                scan_id=f"scan={scan_number}",
+                ms_level=int(info.get("ms_level", 1)),
+                retention_time_sec=float(info.get("retention_time", 0.0)) * 60.0,
+                mz=mz,
+                intensity=intensity,
+                polarity=polarity,
+                precursor_mz=precursor_mz if precursor_mz else None,
+                precursor_charge=precursor_charge,
+                collision_energy=collision_energy,
+                total_ion_current=float(tic) if tic is not None else None,
+                base_peak_mz=float(base_mz) if base_mz is not None else None,
+                base_peak_intensity=float(base_int) if base_int is not None else None,
+                filter_string=filter_str,
+                ion_injection_time_ms=float(ion_inject)
+                if ion_inject is not None
+                else None,
+                scan_window_lower=float(low_mz) if low_mz is not None else None,
+                scan_window_upper=float(high_mz) if high_mz is not None else None,
+                is_centroid=is_centroid,
             )
 
     def iter_chromatograms(self) -> Iterator[Chromatogram]:
         if self._raw is None:
             raise RuntimeError("ThermoConverter.open() must be called first")
+
         if hasattr(self._raw, "iter_chromatograms"):
             for chrom in self._raw.iter_chromatograms():
                 yield Chromatogram(
@@ -89,6 +123,21 @@ class ThermoConverter(VendorConverter):
                         getattr(chrom, "intensities", chrom.get("intensities", []))
                     ),
                 )
+            return
+
+        times: list[float] = []
+        intensities: list[float] = []
+        n_scans = self._scan_count()
+        for i in range(n_scans):
+            scan_number = i + 1
+            info = self._scan_info(scan_number)
+            rt = info.get("retention_time", 0.0)
+            tic = info.get("total_ion_current", 0.0)
+            times.append(float(rt) * 60.0)
+            intensities.append(float(tic) if tic is not None else 0.0)
+
+        if times:
+            yield Chromatogram(id="TIC", times=times, intensities=intensities)
 
     def metadata(self) -> dict[str, Any]:
         if self._path is None:
@@ -114,7 +163,7 @@ class ThermoConverter(VendorConverter):
 
     def _scan_count(self) -> int:
         assert self._raw is not None
-        for attr in ("n_scans", "scan_count", "num_spectra"):
+        for attr in ("num_scans", "n_scans", "scan_count", "num_spectra"):
             if hasattr(self._raw, attr):
                 value = getattr(self._raw, attr)
                 return int(value() if callable(value) else value)
@@ -122,47 +171,20 @@ class ThermoConverter(VendorConverter):
             return len(self._raw)
         raise AttributeError("Cannot determine Thermo scan count from opentfraw object")
 
-    def _peaks(self, scan_number: int) -> tuple[list[float], list[float]]:
-        assert self._raw is not None
-        if hasattr(self._raw, "peaks"):
-            mz, intensity = self._raw.peaks(scan_number)
-            return list(mz), list(intensity)
-        raise AttributeError("opentfraw object has no peaks() method")
-
     def _scan_info(self, scan_number: int) -> dict[str, Any]:
         assert self._raw is not None
         if hasattr(self._raw, "scan"):
             info = self._raw.scan(scan_number)
             return dict(info) if not isinstance(info, dict) else info
-        return {"id": f"scan={scan_number}", "ms_level": 1, "retention_time_sec": 0.0}
+        return {"id": f"scan={scan_number}", "ms_level": 1, "retention_time": 0.0}
 
     @staticmethod
-    def _from_mapping(index: int, spec: Any) -> Spectrum:
-        if isinstance(spec, Spectrum):
-            return Spectrum(
-                index=index,
-                scan_id=spec.scan_id,
-                ms_level=spec.ms_level,
-                retention_time_sec=spec.retention_time_sec,
-                mz=list(spec.mz),
-                intensity=list(spec.intensity),
-                polarity=spec.polarity,
-                precursor_mz=spec.precursor_mz,
-                precursor_charge=spec.precursor_charge,
-                collision_energy=spec.collision_energy,
-            )
-        get = spec.get if isinstance(spec, dict) else lambda k, d=None: getattr(spec, k, d)
-        return Spectrum(
-            index=index,
-            scan_id=str(get("id", get("scan_id", f"scan={index + 1}"))),
-            ms_level=int(get("ms_level", get("msLevel", 1))),
-            retention_time_sec=float(
-                get("retention_time_sec", get("rt", get("retention_time", 0.0)))
-            ),
-            mz=list(get("mz", [])),
-            intensity=list(get("intensity", get("intensities", []))),
-            polarity=get("polarity"),
-            precursor_mz=get("precursor_mz"),
-            precursor_charge=get("precursor_charge"),
-            collision_energy=get("collision_energy"),
-        )
+    def _parse_polarity(value: Any) -> Optional[Polarity]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            if value in ("+", "positive", "Positive"):
+                return "positive"
+            if value in ("-", "negative", "Negative"):
+                return "negative"
+        return None

@@ -118,6 +118,14 @@ def convert_native(params: types.TConfig) -> str:
                 precursor_mz=s.precursor_mz,
                 precursor_charge=s.precursor_charge,
                 collision_energy=s.collision_energy,
+                total_ion_current=s.total_ion_current,
+                base_peak_mz=s.base_peak_mz,
+                base_peak_intensity=s.base_peak_intensity,
+                filter_string=s.filter_string,
+                ion_injection_time_ms=s.ion_injection_time_ms,
+                scan_window_lower=s.scan_window_lower,
+                scan_window_upper=s.scan_window_upper,
+                is_centroid=s.is_centroid,
             )
             for s in filtered
         ]
@@ -137,12 +145,14 @@ def convert_native(params: types.TConfig) -> str:
         chromatograms=chromatograms,
         metadata=metadata,
         indexed=bool(params.get("index")),
+        compress=bool(params.get("compress")),
     )
 
 
 def _resolve_outfile(params: types.TConfig) -> str:
-    if params.get("outfile"):
-        return str(Path(params["outfile"]).resolve())
+    outfile = params.get("outfile")
+    if outfile:
+        return str(Path(outfile).resolve())
     infile = Path(params["infile"])
     base = infile.stem if infile.suffix else infile.name
     # Waters/Agilent/Bruker dirs often end with .raw / .d
