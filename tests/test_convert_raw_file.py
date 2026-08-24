@@ -1,11 +1,13 @@
-"""Tests for convert_raw_file vendor routing."""
+"""Tests for the convert_raw_file / waters_convert docker aliases."""
 
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
-from mzx import RawFileConversionError, convert_raw_file
+from mzx import RawFileConversionError, convert_raw_file, waters_convert
+
+MZML_BODY = b'<?xml version="1.0"?><mzML><run/></mzML>'
 
 
 def _minimal_params(infile: str, vendor: str):
@@ -30,36 +32,50 @@ def _minimal_params(infile: str, vendor: str):
     }
 
 
-@pytest.mark.parametrize(
-    "vendor",
-    ["Thermo", "thermo", "Agilent", "bruker", "Bruker"],
-)
-@mock.patch("mzx.msconvert", return_value="/out/file.mzML")
-def test_convert_raw_file_delegates_to_msconvert(
-    mock_ms, tmp_path: Path, vendor: str
+def _writes(params, infile, outfile, **kwargs):
+    Path(outfile).write_bytes(MZML_BODY)
+    return 0
+
+
+@pytest.mark.parametrize("vendor", ["Thermo", "thermo", "Agilent", "bruker", "Bruker"])
+@mock.patch("mzx.run_msconvert_docker", side_effect=_writes)
+def test_convert_raw_file_routes_through_docker(
+    mock_run, tmp_path: Path, vendor: str
 ) -> None:
     f = tmp_path / "s.raw"
     f.write_text("x")
+
     out = convert_raw_file(_minimal_params(str(f), vendor))
-    assert out == "/out/file.mzML"
-    mock_ms.assert_called_once()
+
+    assert out == str(tmp_path / "s.mzML")
+    mock_run.assert_called_once()
 
 
-@mock.patch("mzx.msconvert", return_value="/out/u.mzML")
-def test_convert_raw_file_unspecified_uses_msconvert(mock_ms, tmp_path: Path) -> None:
+@mock.patch("mzx.run_msconvert_docker", side_effect=_writes)
+def test_convert_raw_file_unspecified_still_converts(mock_run, tmp_path: Path) -> None:
     f = tmp_path / "s.txt"
     f.write_text("x")
+
     convert_raw_file(_minimal_params(str(f), "unspecified"))
-    mock_ms.assert_called_once()
+
+    mock_run.assert_called_once()
 
 
-@mock.patch("mzx.waters_convert", return_value="/out/w.mzML")
-def test_convert_raw_file_waters(mock_wc, tmp_path: Path) -> None:
-    f = tmp_path / "w.raw"
-    f.write_text("x")
-    out = convert_raw_file(_minimal_params(str(f), "waters"))
-    assert out == "/out/w.mzML"
-    mock_wc.assert_called_once()
+@mock.patch("mzx.run_msconvert_docker", side_effect=_writes)
+def test_waters_convert_reads_lockmass_and_uses_docker(
+    mock_run, tmp_path: Path
+) -> None:
+    d = tmp_path / "w.raw"
+    d.mkdir()
+    (d / "x_extern.inf").write_text(
+        "REFERENCE Function 2 something\n", encoding="latin-1"
+    )
+
+    waters_convert(_minimal_params(str(d), "waters"))
+
+    passed = mock_run.call_args[0][0]
+    assert passed["lockmass"] is True
+    assert passed["lockmass_function_exclude"] == 2
 
 
 def test_convert_raw_file_waters_propagates_as_raw_file_error(tmp_path: Path) -> None:

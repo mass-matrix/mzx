@@ -1,13 +1,17 @@
-"""Tests for waters_convert() happy path (msconvert mocked)."""
+"""Tests for waters_lockmass_config() — the _extern.inf lockmass discovery.
+
+No mocking needed; it reads the directory and returns params.
+"""
 
 from pathlib import Path
-from unittest import mock
 
-from mzx import waters_convert
+import pytest
+
+from mzx import WatersConvertException, waters_lockmass_config
 
 
-def _waters_params(infile: str):
-    return {
+def _waters_params(infile: str, **overrides):
+    p = {
         "infile": infile,
         "index": False,
         "sortbyscan": False,
@@ -26,36 +30,49 @@ def _waters_params(infile: str):
         "neg_lockmass": None,
         "pos_lockmass": None,
     }
+    p.update(overrides)
+    return p
 
 
-@mock.patch("mzx.msconvert", return_value="/tmp/out/dir/file.mzML")
-def test_waters_convert_with_extern_inf_calls_msconvert(
-    mock_ms, tmp_path: Path
-) -> None:
+def test_forces_mzml_and_index(tmp_path: Path) -> None:
     d = tmp_path / "waters_dir"
     d.mkdir()
     (d / "foo_extern.inf").write_text("no reference line\n", encoding="latin-1")
-    out = waters_convert(_waters_params(str(d)))
-    assert out == "/tmp/out/dir/file.mzML"
-    mock_ms.assert_called_once()
-    passed = mock_ms.call_args[0][0]
-    assert passed["vendor"] == "waters"
-    assert passed["type"] == "mzml"
-    assert passed["index"] is True
+
+    out = waters_lockmass_config(_waters_params(str(d)))
+
+    assert out["vendor"] == "waters"
+    assert out["type"] == "mzml"
+    assert out["index"] is True
 
 
-@mock.patch("mzx.msconvert", return_value="/out.mzML")
-def test_waters_convert_lockmass_reference_line_sets_exclude(
-    mock_ms, tmp_path: Path
-) -> None:
+def test_no_reference_line_leaves_lockmass_off(tmp_path: Path) -> None:
+    d = tmp_path / "waters_dir"
+    d.mkdir()
+    (d / "foo_extern.inf").write_text("no reference line\n", encoding="latin-1")
+
+    out = waters_lockmass_config(_waters_params(str(d)))
+
+    assert out["lockmass"] is False
+    assert out["lockmass_function_exclude"] is None
+
+
+def test_reference_line_sets_exclude(tmp_path: Path) -> None:
     d = tmp_path / "w"
     d.mkdir()
     (d / "x_extern.inf").write_text(
         "REFERENCE Function 2 something\n", encoding="latin-1"
     )
-    p = _waters_params(str(d))
-    p["lockmass_disabled"] = False
-    waters_convert(p)
-    passed = mock_ms.call_args[0][0]
-    assert passed["lockmass"] is True
-    assert passed["lockmass_function_exclude"] == 2
+
+    out = waters_lockmass_config(_waters_params(str(d), lockmass_disabled=False))
+
+    assert out["lockmass"] is True
+    assert out["lockmass_function_exclude"] == 2
+
+
+def test_missing_extern_inf_raises(tmp_path: Path) -> None:
+    d = tmp_path / "empty"
+    d.mkdir()
+
+    with pytest.raises(WatersConvertException, match="_extern.inf"):
+        waters_lockmass_config(_waters_params(str(d)))

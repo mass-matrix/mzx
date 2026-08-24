@@ -1,12 +1,12 @@
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 
 import csv
 import os
 import re
-import shlex
 import struct
 import subprocess
 from pathlib import Path
+from typing import Literal
 
 from lxml import etree
 from loguru import logger
@@ -16,33 +16,44 @@ from . import types
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
 
-class WatersConvertException(Exception):
-    pass
-
-
 class RawFileConversionError(Exception):
     pass
 
 
-def run_cmd(cmd):
-    """
-    Run a command and return the output.
-    """
-    cmd = shlex.split(cmd, posix=True)
-    # logger.info(f"Running command: {cmd}")
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+class WatersConvertException(RawFileConversionError):
+    pass
 
-    output = ""
-    while True:
-        if p.stdout:
-            line = p.stdout.readline()
-            if not line:
-                break
-            (logger.info(line.strip(), flush=True),)
-            output = output + line
 
-    logger.info("Process Complete")
-    return output
+class ConversionTerminatedAbnormally(RawFileConversionError):
+    """msconvert returned non-zero or was killed. Most commonly this is an OOM
+    kill on a large vendor file, or the runner's timeout expiring."""
+
+    pass
+
+
+class ConversionProducedNoOutput(RawFileConversionError):
+    """msconvert exited 0 but wrote no usable output. It does this on some
+    malformed acquisitions, and can leave a truncated file behind if it dies
+    partway through the write."""
+
+    pass
+
+
+def run_cmd(cmd: list[str], timeout: int | None = None) -> int:
+    """
+    Run a command and return its exit code.
+
+    Output is inherited rather than captured, so msconvert's progress shows up
+    live — a large file can take many minutes.
+    """
+    logger.info(f"Running command: {cmd}")
+
+    try:
+        return subprocess.run(cmd, timeout=timeout).returncode
+    except subprocess.TimeoutExpired as e:
+        raise ConversionTerminatedAbnormally(
+            f"Command exceeded {timeout}s: {cmd}"
+        ) from e
 
 
 def format_function_number(s):
@@ -282,14 +293,20 @@ def extract_tic_from_mzml(mzml_path, output_csv=None):
     return output_csv
 
 
-def waters_convert(params: types.TConfig) -> str:
+def waters_lockmass_config(params: types.TConfig) -> types.TConfig:
     """
-    Convert Waters raw file to mzML format.
+    Read a Waters .raw directory's _extern.inf and return params with the
+    lockmass settings filled in.
+
+    Does not convert. The REFERENCE line names the function holding the lockmass
+    scans, which msconvert needs both to refine masses against and to exclude
+    from the output.
     """
-    logger.info(f"Converting Waters file: {params['infile']}")
+    logger.info(f"Reading Waters lockmass config: {params['infile']}")
 
     # Find the lockmass reference in the _extern.inf file
     lockmass_present = False
+    function_number = None
 
     if not params["lockmass_disabled"]:
         logger.info("Using Lockmass reference is enabled if present.")
@@ -339,34 +356,26 @@ def waters_convert(params: types.TConfig) -> str:
         lockmass_function_exclude=function_number if lockmass_present else None,
     )
 
-    outfile = msconvert(waters_params)
+    return waters_params
 
-    return outfile
+
+def waters_convert(params: types.TConfig) -> str:
+    """
+    Convert a Waters raw file to mzML via Docker.
+
+    Thin alias for `convert(..., runner="docker")`, which handles Waters
+    dispatch itself.
+    """
+    return convert(params, runner="docker")
 
 
 def convert_raw_file(params: types.TConfig) -> str:
     """
-    Convert the raw file to mzML format based on the vendor.
+    Convert the raw file to mzML format based on the vendor, via Docker.
+
+    Thin alias for `convert(..., runner="docker")`.
     """
-    logger.info(f"Converting {params['vendor']} file: {params['infile']}")
-    match params["vendor"].lower():
-        case "thermo":
-            return msconvert(params)
-        case "agilent":
-            return msconvert(params)
-        case "waters":
-            try:
-                return waters_convert(params)
-            except WatersConvertException as e:
-                logger.error(str(e))
-                raise RawFileConversionError(str(e))
-        case "bruker":
-            return msconvert(params)
-        case "unspecified":
-            logger.error("Vendor not supported, trying msconvert.")
-            return msconvert(params)
-        case _:
-            raise RawFileConversionError("Unsupported vendor!")
+    return convert(params, runner="docker")
 
 
 def exclusion_string(x: int) -> str:
@@ -398,56 +407,57 @@ def exclusion_string(x: int) -> str:
     return " ".join(parts)
 
 
-def msconvert(params):
+def output_filename(params: types.TConfig) -> str:
     """
-    Converts the given file to the mzML format using the msconvert tool.
+    The basename msconvert will write for the given config.
+
+    Derived from `outfile` when set, otherwise from `infile`.
     """
-    raw_path: str = os.path.abspath(params["infile"])
-    path = raw_path.strip("/") if raw_path.endswith("/") else raw_path
-    directory = os.path.dirname(path)
-    filename = os.path.basename(path)
+    source = params["outfile"] if params["outfile"] is not None else params["infile"]
+    base = os.path.splitext(os.path.basename(os.path.abspath(source)))[0]
 
-    logger.info(f"Raw path = {raw_path}")
-    logger.info(f"File path = {path}")
-    logger.info(f"Converting {params['infile']} to {params['type']} format.")
-    logger.info(f"Input directory: {directory}")
-    logger.info(f"Input filename: {filename}")
-
-    if params["outfile"] is not None:
-        outfilename = os.path.basename(params["outfile"])
-        base = os.path.splitext(outfilename)[0]
-    else:
-        base = os.path.splitext(filename)[0]
-
-    filter_string = ""
     if params["type"] == "mzxml":
-        filter_string += " --mzXML"
-        outfile = base + ".mzXML"
-    elif params["type"] == "mgf":
-        filter_string += " --mgf"
-        outfile = base + ".mgf"
-    else:
-        filter_string += " --mzML"
-        outfile = base + ".mzML"
+        return base + ".mzXML"
+    if params["type"] == "mgf":
+        return base + ".mgf"
+    return base + ".mzML"
 
-    logger.info(f"Output file: {outfile}")
-    filter_string += f' --outfile "/data/{outfile}"'
+
+def build_msconvert_args(params: types.TConfig, outfile: str) -> list[str]:
+    """
+    Build the msconvert argument list for the given config.
+
+    Transport-agnostic: the caller decides how msconvert is reached and what
+    `outfile` path it can see. Does not include the input file, which runners
+    position themselves.
+    """
+    args: list[str] = []
+
+    if params["type"] == "mzxml":
+        args.append("--mzXML")
+    elif params["type"] == "mgf":
+        args.append("--mgf")
+    else:
+        args.append("--mzML")
+
+    args += ["--outfile", outfile]
 
     if params["index"] is False:
-        filter_string += " --noindex"
+        args.append("--noindex")
 
     if params["peak_picking"] == "all":
-        filter_string += " --filter 'peakPicking true 1-'"
+        args += ["--filter", "peakPicking true 1-"]
     elif params["peak_picking"] == "ms1":
-        filter_string += " --filter 'peakPicking true 1'"
+        args += ["--filter", "peakPicking true 1"]
     elif params["peak_picking"] == "msms":
-        filter_string += " --filter 'peakPicking true 2-'"
+        args += ["--filter", "peakPicking true 2-"]
 
     if params["sortbyscan"] is True:
-        filter_string += " --filter 'sortByScanTime'"
+        args += ["--filter", "sortByScanTime"]
 
     if params["remove_zeros"] is True:
-        filter_string += " --filter 'zeroSamples removeExtra'"
+        args += ["--filter", "zeroSamples removeExtra"]
+
     if params["lockmass"]:
         if params["neg_lockmass"] is not None:
             neg_lockmass = params["neg_lockmass"]
@@ -461,19 +471,169 @@ def msconvert(params):
             lockmass_tolerance = params["lockmass_tolerance"]
         else:
             lockmass_tolerance = 0.1
-        filter_string += f" --filter 'lockmassRefiner mz={pos_lockmass} mzNegIons={neg_lockmass} tol={lockmass_tolerance}'"
+        args += [
+            "--filter",
+            f"lockmassRefiner mz={pos_lockmass} mzNegIons={neg_lockmass} tol={lockmass_tolerance}",
+        ]
 
         if params["lockmass_function_exclude"] is not None:
-            filter_string += f" --filter 'scanEvent {exclusion_string(params['lockmass_function_exclude'])}'"
+            exclusion = exclusion_string(params["lockmass_function_exclude"])
+            args += ["--filter", f"scanEvent {exclusion}"]
 
-    cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
-        directory, docker_image, filename, filter_string
-    )
+    return args
 
-    logger.info("Running msconvert")
 
-    _output = run_cmd(cmd)
+def run_msconvert_docker(
+    params: types.TConfig,
+    infile: str,
+    outfile: str,
+    image: str = docker_image,
+    timeout: int | None = None,
+) -> int:
+    """
+    Run msconvert inside the ProteoWizard container and return its exit code.
 
-    logger.info("Conversion complete.")
+    Requires Docker to be installed and running. Input and output directories are
+    mounted separately so the output can land somewhere other than beside the
+    input.
+    """
+    in_dir, in_name = os.path.split(infile)
+    out_dir, out_name = os.path.split(outfile)
 
-    return os.path.join(directory, outfile)
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{in_dir}:/data",
+        "-v",
+        f"{out_dir}:/out",
+        image,
+        "wine",
+        "msconvert",
+        f"/data/{in_name}",
+        *build_msconvert_args(params, f"/out/{out_name}"),
+    ]
+
+    return run_cmd(cmd, timeout=timeout)
+
+
+def run_msconvert(
+    params: types.TConfig,
+    infile: str,
+    outfile: str,
+    executable: list[str] | None = None,
+    timeout: int | None = None,
+) -> int:
+    """
+    Run msconvert from the local environment and return its exit code.
+
+    msconvert has to already be reachable: a native build on PATH, or Wine with
+    ProteoWizard installed, in which case pass the Wine wrapper as `executable`
+    (e.g. ["wine64_anyuser", "msconvert"]).
+    """
+    cmd = [
+        *(executable or ["msconvert"]),
+        infile,
+        *build_msconvert_args(params, outfile),
+    ]
+
+    return run_cmd(cmd, timeout=timeout)
+
+
+# Indexed mzML puts the index after </mzML>, so accept either closing tag —
+# with enough spectra the index alone can exceed the tail we read.
+_CLOSING_MARKERS = {
+    "mzml": (b"</mzML>", b"</indexedmzML>"),
+    "mzxml": (b"</mzXML>",),
+}
+
+_TAIL_BYTES = 4096
+
+
+def _raise_if_output_invalid(params: types.TConfig, outfile: str) -> None:
+    """
+    msconvert can exit 0 having written nothing at all, and can leave a truncated
+    file behind if it dies partway through the write. Checking for the closing tag
+    is the cheapest way to tell a complete document from a partial one.
+    """
+    if not os.path.exists(outfile):
+        raise ConversionProducedNoOutput(f"msconvert wrote no output to {outfile}")
+
+    markers = _CLOSING_MARKERS.get(params["type"])
+    if not markers:
+        return
+
+    with open(outfile, "rb") as f:
+        f.seek(max(0, os.path.getsize(outfile) - _TAIL_BYTES))
+        tail = f.read()
+
+    if not any(marker in tail for marker in markers):
+        raise ConversionProducedNoOutput(
+            f"msconvert left a truncated file at {outfile}"
+        )
+
+
+SUPPORTED_VENDORS = frozenset({"thermo", "agilent", "bruker", "waters", "unspecified"})
+
+
+def convert(
+    params: types.TConfig,
+    output_dir: str | None = None,
+    runner: Literal["local", "docker"] = "local",
+    executable: list[str] | None = None,
+    timeout: int | None = None,
+) -> str:
+    """
+    Convert a raw file to the configured output format and return its path.
+
+    The only conversion entry point. `runner` picks how msconvert is reached:
+
+      "local"  — msconvert is already on PATH, or reachable through the wrapper
+                 given in `executable` (e.g. ["wine64_anyuser", "msconvert"]).
+      "docker" — run it in the ProteoWizard container. Needs Docker running, and
+                 is how a machine without ProteoWizard installed converts a file.
+
+    Either way the exit code is checked and the output is verified, so a failed
+    conversion raises instead of returning a path to nothing.
+
+    `output_dir` defaults to the input's parent directory.
+    """
+    infile = os.path.abspath(params["infile"])
+    vendor_name = (params["vendor"] or "unspecified").lower()
+
+    if vendor_name not in SUPPORTED_VENDORS:
+        raise RawFileConversionError(f"Unsupported vendor: {params['vendor']}")
+
+    if vendor_name == "unspecified":
+        logger.warning("Vendor not identified, handing the file to msconvert as-is.")
+
+    if vendor_name == "waters":
+        # WatersConvertException is a RawFileConversionError, so it propagates
+        # without needing to be rewrapped.
+        params = waters_lockmass_config(params)
+
+    if output_dir is None:
+        output_dir = os.path.dirname(infile)
+    os.makedirs(output_dir, exist_ok=True)
+
+    outfile = os.path.join(output_dir, output_filename(params))
+
+    logger.info(f"Converting {vendor_name} file {infile} -> {outfile}")
+
+    if runner == "docker":
+        return_code = run_msconvert_docker(params, infile, outfile, timeout=timeout)
+    else:
+        return_code = run_msconvert(
+            params, infile, outfile, executable=executable, timeout=timeout
+        )
+
+    if return_code != 0:
+        raise ConversionTerminatedAbnormally(
+            f"msconvert exited with code {return_code} converting {infile}"
+        )
+
+    _raise_if_output_invalid(params, outfile)
+
+    logger.info(f"Conversion complete: {outfile}")
+    return outfile
