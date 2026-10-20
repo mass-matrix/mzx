@@ -10,7 +10,7 @@ TUnspecified = Literal["unspecified"]
 TVendor = Union[TAgilent, TBruker, TThermo, TWaters, TUnspecified]
 
 
-class TConfig(TypedDict):
+class _TConfigRequired(TypedDict):
     infile: str
     index: bool
     sortbyscan: bool
@@ -28,3 +28,8 @@ class TConfig(TypedDict):
     pos_lockmass: Optional[float]
     lockmass_tolerance: Optional[float]
     lockmass_function_exclude: Optional[int]
+
+
+class TConfig(_TConfigRequired, total=False):
+    # Seconds before msconvert is killed; None or absent waits indefinitely
+    timeout: Optional[float]

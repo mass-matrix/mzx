@@ -6,6 +6,8 @@ import re
 import shlex
 import struct
 import subprocess
+import threading
+import uuid
 from pathlib import Path
 
 from lxml import etree
@@ -24,22 +26,68 @@ class RawFileConversionError(Exception):
     pass
 
 
-def run_cmd(cmd):
-    """
-    Run a command and return the output.
-    """
-    cmd = shlex.split(cmd, posix=True)
-    # logger.info(f"Running command: {cmd}")
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+class CommandTimeoutError(RawFileConversionError):
+    pass
 
-    output = ""
-    while True:
+
+# Lines of command output included in the error when a command fails
+ERROR_OUTPUT_TAIL_LINES = 20
+
+# Seconds to wait for remaining output after the process has exited or been killed
+READER_JOIN_TIMEOUT = 10
+
+
+def run_cmd(cmd: str | list[str], timeout: float | None = None) -> str:
+    """
+    Run a command, log its output and return it.
+
+    ``cmd`` is an argument list, or a string that is split with ``shlex``.
+    stderr is merged into the returned output.
+
+    Raises ``RawFileConversionError`` if the command exits with a non-zero code,
+    and ``CommandTimeoutError`` if it does not finish within ``timeout`` seconds.
+    The process is killed on timeout or if waiting is interrupted.
+    """
+    args = shlex.split(cmd, posix=True) if isinstance(cmd, str) else list(cmd)
+    p = subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+    )
+
+    lines: list[str] = []
+
+    def read_output() -> None:
         if p.stdout:
-            line = p.stdout.readline()
-            if not line:
-                break
-            (logger.info(line.strip(), flush=True),)
-            output = output + line
+            for line in p.stdout:
+                logger.info(line.strip())
+                lines.append(line)
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
+
+    try:
+        returncode = p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait()
+        raise CommandTimeoutError(f"Command timed out after {timeout}s: {args[0]}")
+    except BaseException:
+        p.kill()
+        p.wait()
+        raise
+    finally:
+        reader.join(timeout=READER_JOIN_TIMEOUT)
+        if p.stdout and not reader.is_alive():
+            p.stdout.close()
+
+    output = "".join(lines)
+    if returncode != 0:
+        tail = "".join(lines[-ERROR_OUTPUT_TAIL_LINES:]).strip()
+        raise RawFileConversionError(
+            f"Command exited with code {returncode}: {args[0]}\n{tail}"
+        )
 
     logger.info("Process Complete")
     return output
@@ -337,6 +385,7 @@ def waters_convert(params: types.TConfig) -> str:
         pos_lockmass=params["pos_lockmass"],
         lockmass_tolerance=params["lockmass_tolerance"],
         lockmass_function_exclude=function_number if lockmass_present else None,
+        timeout=params.get("timeout"),
     )
 
     outfile = msconvert(waters_params)
@@ -419,35 +468,35 @@ def msconvert(params):
     else:
         base = os.path.splitext(filename)[0]
 
-    filter_string = ""
+    msconvert_args: list[str] = []
     if params["type"] == "mzxml":
-        filter_string += " --mzXML"
+        msconvert_args.append("--mzXML")
         outfile = base + ".mzXML"
     elif params["type"] == "mgf":
-        filter_string += " --mgf"
+        msconvert_args.append("--mgf")
         outfile = base + ".mgf"
     else:
-        filter_string += " --mzML"
+        msconvert_args.append("--mzML")
         outfile = base + ".mzML"
 
     logger.info(f"Output file: {outfile}")
-    filter_string += f' --outfile "/data/{outfile}"'
+    msconvert_args += ["--outfile", f"/data/{outfile}"]
 
     if params["index"] is False:
-        filter_string += " --noindex"
+        msconvert_args.append("--noindex")
 
     if params["peak_picking"] == "all":
-        filter_string += " --filter 'peakPicking true 1-'"
+        msconvert_args += ["--filter", "peakPicking true 1-"]
     elif params["peak_picking"] == "ms1":
-        filter_string += " --filter 'peakPicking true 1'"
+        msconvert_args += ["--filter", "peakPicking true 1"]
     elif params["peak_picking"] == "msms":
-        filter_string += " --filter 'peakPicking true 2-'"
+        msconvert_args += ["--filter", "peakPicking true 2-"]
 
     if params["sortbyscan"] is True:
-        filter_string += " --filter 'sortByScanTime'"
+        msconvert_args += ["--filter", "sortByScanTime"]
 
     if params["remove_zeros"] is True:
-        filter_string += " --filter 'zeroSamples removeExtra'"
+        msconvert_args += ["--filter", "zeroSamples removeExtra"]
     if params["lockmass"]:
         if params["neg_lockmass"] is not None:
             neg_lockmass = params["neg_lockmass"]
@@ -461,19 +510,65 @@ def msconvert(params):
             lockmass_tolerance = params["lockmass_tolerance"]
         else:
             lockmass_tolerance = 0.1
-        filter_string += f" --filter 'lockmassRefiner mz={pos_lockmass} mzNegIons={neg_lockmass} tol={lockmass_tolerance}'"
+        msconvert_args += [
+            "--filter",
+            f"lockmassRefiner mz={pos_lockmass} mzNegIons={neg_lockmass} tol={lockmass_tolerance}",
+        ]
 
         if params["lockmass_function_exclude"] is not None:
-            filter_string += f" --filter 'scanEvent {exclusion_string(params['lockmass_function_exclude'])}'"
+            msconvert_args += [
+                "--filter",
+                f"scanEvent {exclusion_string(params['lockmass_function_exclude'])}",
+            ]
 
-    cmd = "docker run --rm -v '{}':/data {} wine msconvert '/data/{}' {}".format(
-        directory, docker_image, filename, filter_string
-    )
+    # Named so the container can be stopped if the conversion is interrupted;
+    # killing the docker client alone leaves the container running.
+    container_name = f"mzx-{uuid.uuid4().hex[:12]}"
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        container_name,
+        "-v",
+        f"{directory}:/data",
+        docker_image,
+        "wine",
+        "msconvert",
+        f"/data/{filename}",
+        *msconvert_args,
+    ]
 
     logger.info("Running msconvert")
 
-    _output = run_cmd(cmd)
+    try:
+        _output = run_cmd(cmd, timeout=params.get("timeout"))
+    except BaseException:
+        kill_container(container_name)
+        raise
+
+    outpath = os.path.join(directory, outfile)
+    if not os.path.isfile(outpath):
+        raise RawFileConversionError(
+            f"msconvert finished but did not produce {outpath}"
+        )
 
     logger.info("Conversion complete.")
 
-    return os.path.join(directory, outfile)
+    return outpath
+
+
+def kill_container(name: str) -> None:
+    """
+    Best-effort stop of a running container; a container that already exited is ignored.
+    """
+    try:
+        subprocess.run(
+            ["docker", "kill", name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.warning(f"Failed to kill container {name}: {e}")
