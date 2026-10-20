@@ -59,3 +59,14 @@ def test_waters_convert_lockmass_reference_line_sets_exclude(
     passed = mock_ms.call_args[0][0]
     assert passed["lockmass"] is True
     assert passed["lockmass_function_exclude"] == 2
+
+
+@mock.patch("mzx.msconvert", return_value="/out.mzML")
+def test_waters_convert_passes_timeout(mock_ms, tmp_path: Path) -> None:
+    d = tmp_path / "w"
+    d.mkdir()
+    (d / "x_extern.inf").write_text("no reference line\n", encoding="latin-1")
+    p = _waters_params(str(d))
+    p["timeout"] = 60
+    waters_convert(p)
+    assert mock_ms.call_args[0][0]["timeout"] == 60
