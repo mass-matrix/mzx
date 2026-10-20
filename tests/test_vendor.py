@@ -69,3 +69,64 @@ def test_waters_cannot_find_inf_exception(tmp_path):
                 "pos_lockmass": None,
             }
         )
+
+
+@pytest.mark.parametrize("filename", ["SAMPLE.RAW", "sample.Raw"])
+def test_thermo_file_extension_is_case_insensitive(tmp_path, filename):
+    path = tmp_path / filename
+    path.write_text("x")
+    assert vendor.vendor_name_from_file(str(path)) == "Thermo"
+
+
+def test_thermo_file_under_dotted_directory(tmp_path):
+    parent = tmp_path / "batch.d"
+    parent.mkdir()
+    path = parent / "sample.raw"
+    path.write_text("x")
+    assert vendor.vendor_name_from_file(str(path)) == "Thermo"
+
+
+def test_waters_directory_under_path_containing_dot_d(tmp_path):
+    # Previously detected as bruker because ".d" appears in "run.data"
+    path = tmp_path / "run.data" / "sample.raw"
+    path.mkdir(parents=True)
+    assert vendor.vendor_name_from_file(str(path)) == "waters"
+
+
+def test_waters_directory_uppercase_extension(tmp_path):
+    path = tmp_path / "SAMPLE.RAW"
+    path.mkdir()
+    assert vendor.vendor_name_from_file(str(path)) == "waters"
+
+
+def test_waters_directory_with_trailing_slash(tmp_path):
+    path = tmp_path / "sample.raw"
+    path.mkdir()
+    assert vendor.vendor_name_from_file(str(path) + "/") == "waters"
+
+
+def test_waters_directory_with_lowercase_func_file(tmp_path):
+    (tmp_path / "_func001.dat").write_text("data")
+    assert vendor.vendor_name_from_file(str(tmp_path)) == "waters"
+
+
+def test_directory_under_path_containing_dot_raw_is_unspecified(tmp_path):
+    # Previously detected as waters because ".raw" appears in a parent directory
+    path = tmp_path / "batch.raw.old" / "notes"
+    path.mkdir(parents=True)
+    assert vendor.vendor_name_from_file(str(path)) == "unspecified"
+
+
+@pytest.mark.parametrize("dirname", ["sample.d", "SAMPLE.D"])
+def test_bruker_directory_without_acqdata(tmp_path, dirname):
+    path = tmp_path / dirname
+    path.mkdir()
+    (path / "analysis.tdf").write_text("x")
+    assert vendor.vendor_name_from_file(str(path)) == "bruker"
+
+
+@pytest.mark.parametrize("acqdata", ["AcqData", "acqdata"])
+def test_agilent_directory_with_acqdata(tmp_path, acqdata):
+    path = tmp_path / "sample.d"
+    (path / acqdata).mkdir(parents=True)
+    assert vendor.vendor_name_from_file(str(path)) == "Agilent"
