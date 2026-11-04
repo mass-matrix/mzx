@@ -1,0 +1,13 @@
+[package]
+name = "mzx-mzml"
+description = "mzML model, reader and a ProteoWizard-byte-compatible writer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+flate2.workspace = true
+quick-xml.workspace = true
+mzx-zng = { path = "../mzx-zng" }

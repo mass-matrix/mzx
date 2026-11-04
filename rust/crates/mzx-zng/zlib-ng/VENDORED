@@ -1,0 +1,2 @@
+zlib-ng 2.2.5 (tag 2.2.5), unmodified upstream minus test/ doc/ .github/ win32/.
+Matches dotnet/runtime release/10.0 src/native/external/zlib-ng (deflate sources diffed identical).

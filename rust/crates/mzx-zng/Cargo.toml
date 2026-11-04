@@ -1,0 +1,11 @@
+[package]
+name = "mzx-zng"
+description = "zlib-ng 2.2.5 (the version bundled by .NET 10) driven exactly like System.IO.Compression.ZLibStream"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "mzx-zng"
+
+[build-dependencies]
+cc.workspace = true
+cmake.workspace = true

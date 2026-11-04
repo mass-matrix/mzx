@@ -33,3 +33,7 @@ class _TConfigRequired(TypedDict):
 class TConfig(_TConfigRequired, total=False):
     # Seconds before msconvert is killed; None or absent waits indefinitely
     timeout: Optional[float]
+    # Conversion backend: "auto" (default) uses the proven Rust backend when it
+    # supports the input and falls back to msconvert, "rust" never falls back,
+    # "docker" always runs msconvert. The Rust backend ignores ``timeout``.
+    backend: Literal["auto", "rust", "docker"]

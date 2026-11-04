@@ -1,4 +1,4 @@
-.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall
+.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall rust-test rust-wheel
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -94,3 +94,9 @@ test: ## run tests with coverage
 
 uninstall: ## remove mzx from the active environment
 	uv pip uninstall mzx
+
+rust-test: ## rustfmt, clippy and tests for the Rust workspace (set MZX_CORPUS/MZX_RAW for the contract proofs)
+	cd rust && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --release --workspace
+
+rust-wheel: ## build the mzx-rs wheel (Rust backend) into rust/dist/ (needs maturin)
+	cd rust/crates/mzx-py && maturin build --release -o ../../dist

@@ -1,0 +1,10 @@
+[package]
+name = "mzx-filters"
+description = "Ports of the msconvert spectrum filters mzx uses, byte-compatible with pwiz 4.x"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+mzx-mzml = { path = "../mzx-mzml" }

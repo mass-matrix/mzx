@@ -46,3 +46,4 @@ def test_cli_passes_vendor_from_vendor_name_from_file(monkeypatch) -> None:
             main()
     params = mock_conv.call_args[0][0]
     assert params["vendor"] == "Thermo"
+    assert params["backend"] == "auto"

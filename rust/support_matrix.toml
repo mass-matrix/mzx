@@ -1,0 +1,34 @@
+# Coverage of the Rust Thermo reader (crates/mzx-thermo).
+#
+# A row is proven when `crates/mzx-verify/tests/thermo_reader.rs` (run with
+# MZX_CORPUS set) converts every listed file under every listed option set and
+# `contract_compare` finds it identical to the msconvert golden. The reader
+# itself is fail-closed: anything outside these rows returns `Unsupported`
+# (unknown controller kind, instrument recipe, scan-event preamble, packet
+# type, trailer value type, ...), and mzx falls back to msconvert.
+
+[[proven]]
+vendor = "Thermo"
+raw_version = 66
+instrument = "Q Exactive Focus"
+controllers = ["MS", "PDA", "Other (no scans)"]
+scan_events = ["FTMS + c ESI Full ms", "FTMS + c ESI Full lock ms", "FTMS + c ESI d Full ms2 <mz>@hcd<e>"]
+option_sets = ["default", "nofilter"]
+files = ["190218_AR_JH_A_pos.raw", "190218_AR_JH_Blank2_pos.raw"]
+
+[[proven]]
+vendor = "Thermo"
+raw_version = 66
+instrument = "LTQ XL"
+controllers = ["MS"]
+scan_events = ["ITMS - p ESI Full ms", "ITMS - c ESI d Full ms2 <mz>@cid<e>"]
+option_sets = ["nofilter"]
+files = ["LR_p_LTQ_HILIC_ecoli.raw"]
+
+[[unsupported]]
+vendor = "Thermo"
+raw_version = 66
+instrument = "LTQ XL"
+reason = "precursor peak intensities need Thermo's ion-trap profile centroiding (Scan.ToCentroid) of the MS1 scan"
+option_sets = ["default"]
+files = ["LR_p_LTQ_HILIC_ecoli.raw"]

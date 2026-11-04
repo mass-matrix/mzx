@@ -53,6 +53,11 @@ build-backend = "setuptools.build_meta"
 module = "PySide6.*"
 ignore_missing_imports = true
 
+# Optional Rust backend (rust/crates/mzx-py); typed via its own stubs when installed.
+[[tool.mypy.overrides]]
+module = "mzx_rs"
+ignore_missing_imports = true
+
 [tool.setuptools]
 package-dir = { "" = "src" }
 include-package-data = true

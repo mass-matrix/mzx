@@ -1,0 +1,19 @@
+[package]
+name = "mzx-py"
+description = "Python bindings (module mzx_rs) for mzx's proven Rust conversion backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "_mzx_rs"
+crate-type = ["cdylib"]
+# A cdylib extension module cannot link a test harness without libpython;
+# the pipeline it wraps is tested in mzx-convert and mzx-verify.
+test = false
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+mzx-convert = { path = "../mzx-convert" }
+pyo3 = { version = "0.25", features = ["abi3-py310"] }

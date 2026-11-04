@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "mzx-rs"
+description = "Proven pure-Rust conversion backend for mzx (Thermo RAW to mzML, byte-identical to msconvert)"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+dynamic = ["version"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "mzx_rs._mzx_rs"
+features = ["pyo3/extension-module"]

@@ -13,7 +13,7 @@ from pathlib import Path
 from lxml import etree
 from loguru import logger
 
-from . import types
+from . import rust_backend, types
 
 docker_image = "chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
 
@@ -393,14 +393,49 @@ def waters_convert(params: types.TConfig) -> str:
     return outfile
 
 
+def thermo_convert(params: types.TConfig, fallback: bool) -> str:
+    """
+    Convert a Thermo file with the Rust backend.
+
+    With ``fallback``, anything the Rust backend refuses or fails on is
+    converted with msconvert instead; without it, those raise
+    ``RawFileConversionError``. The output path is the one msconvert would use.
+    """
+    directory, filename, outfile = output_location(params)
+    outpath = os.path.join(directory, outfile)
+    try:
+        rust_backend.convert(os.path.join(directory, filename), outpath, params)
+    except rust_backend.Unsupported as e:
+        if not fallback:
+            raise RawFileConversionError(f"Rust backend: {e}") from e
+        logger.info(f"Rust backend unsupported ({e}); using msconvert")
+        return msconvert(params)
+    except rust_backend.RustConversionError as e:
+        if not fallback:
+            raise RawFileConversionError(f"Rust backend failed: {e}") from e
+        logger.warning(f"Rust backend failed ({e}); using msconvert")
+        return msconvert(params)
+    logger.info(f"Converted with the Rust backend: {outpath}")
+    return outpath
+
+
 def convert_raw_file(params: types.TConfig) -> str:
     """
     Convert the raw file to mzML format based on the vendor.
     """
     logger.info(f"Converting {params['vendor']} file: {params['infile']}")
+    backend = params.get("backend") or "auto"
+    if backend not in rust_backend.BACKENDS:
+        raise RawFileConversionError(f"Unknown backend {backend!r}")
+    if backend == "rust" and params["vendor"].lower() != "thermo":
+        raise RawFileConversionError(
+            f"The Rust backend does not support {params['vendor']} files"
+        )
     match params["vendor"].lower():
         case "thermo":
-            return msconvert(params)
+            if backend == "docker":
+                return msconvert(params)
+            return thermo_convert(params, fallback=backend == "auto")
         case "agilent":
             return msconvert(params)
         case "waters":
@@ -447,9 +482,12 @@ def exclusion_string(x: int) -> str:
     return " ".join(parts)
 
 
-def msconvert(params):
+def output_location(params: types.TConfig) -> tuple[str, str, str]:
     """
-    Converts the given file to the mzML format using the msconvert tool.
+    Return ``(directory, input filename, output filename)`` for a conversion.
+
+    The output is written next to the input, named after ``outfile`` (if set)
+    or the input, with the extension of the output type.
     """
     raw_path: str = os.path.abspath(params["infile"])
     path = raw_path.strip("/") if raw_path.endswith("/") else raw_path
@@ -468,18 +506,30 @@ def msconvert(params):
     else:
         base = os.path.splitext(filename)[0]
 
-    msconvert_args: list[str] = []
     if params["type"] == "mzxml":
-        msconvert_args.append("--mzXML")
         outfile = base + ".mzXML"
     elif params["type"] == "mgf":
-        msconvert_args.append("--mgf")
         outfile = base + ".mgf"
     else:
-        msconvert_args.append("--mzML")
         outfile = base + ".mzML"
 
     logger.info(f"Output file: {outfile}")
+    return directory, filename, outfile
+
+
+def msconvert(params):
+    """
+    Converts the given file to the mzML format using the msconvert tool.
+    """
+    directory, filename, outfile = output_location(params)
+
+    msconvert_args: list[str] = []
+    if params["type"] == "mzxml":
+        msconvert_args.append("--mzXML")
+    elif params["type"] == "mgf":
+        msconvert_args.append("--mgf")
+    else:
+        msconvert_args.append("--mzML")
     msconvert_args += ["--outfile", f"/data/{outfile}"]
 
     if params["index"] is False:

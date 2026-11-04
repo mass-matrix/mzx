@@ -1,0 +1,69 @@
+name: rust
+
+on: [push]
+
+defaults:
+  run:
+    working-directory: rust
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      # Corpus proofs skip themselves without MZX_CORPUS (see corpus-proof).
+      - name: cargo test
+        run: cargo test --workspace
+
+  # Build the mzx-rs wheel and run mzx's tests with the Rust backend installed.
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip maturin
+          cd crates/mzx-py && maturin build --release -o ../../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mzx-rs-wheel
+          path: rust/dist/*.whl
+      - name: pytest with mzx-rs installed
+        working-directory: .
+        run: |
+          pip install -r requirements.txt rust/dist/*.whl -e .
+          python -c "import mzx_rs; print('mzx-rs', mzx_rs.__version__)"
+          make test
+
+  # The contract proof against msconvert goldens. Raw files and goldens are not
+  # in git, so this runs only on a runner that has them: set the repository
+  # variables MZX_CORPUS (directory holding goldens/) and MZX_RAW (directory
+  # holding the .raw files listed in support_matrix.toml).
+  corpus-proof:
+    if: ${{ vars.MZX_CORPUS != '' }}
+    runs-on: self-hosted
+    env:
+      MZX_CORPUS: ${{ vars.MZX_CORPUS }}
+      MZX_RAW: ${{ vars.MZX_RAW }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Contract proofs (writer, filters, Thermo reader)
+        run: cargo test --release --workspace -- --nocapture

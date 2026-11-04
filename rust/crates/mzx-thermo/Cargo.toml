@@ -1,0 +1,13 @@
+[package]
+name = "mzx-thermo"
+description = "Pure-Rust Thermo RAW reader that builds the MSData model the way pwiz 4.x Reader_Thermo does"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+cfb = "0.10"
+mzx-mzml = { path = "../mzx-mzml" }
+regex = "1"
+sha1 = "0.10"

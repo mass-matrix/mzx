@@ -97,6 +97,16 @@ def main():
         default=False,
         help="Export Waters chromatograms (UV, pressure, etc.) to CSV.",
     )
+    parser.add_argument(
+        "--backend",
+        choices=["auto", "rust", "docker"],
+        default="auto",
+        help=(
+            "Conversion backend: auto uses the proven Rust backend when it supports "
+            "the input and falls back to msconvert in Docker; rust never falls back; "
+            "docker always uses msconvert."
+        ),
+    )
     parser.add_argument("--output", type=str, default=None, help="The output file.")
     args = parser.parse_args()
     vendor_name = vendor.vendor_name_from_file(args.file)
@@ -118,6 +128,7 @@ def main():
         "pos_lockmass": args.lockmass_mz_pos,
         "lockmass_tolerance": args.lockmass_tolerance,
         "lockmass_function_exclude": None,
+        "backend": args.backend,
     }
 
     mzml_path = None

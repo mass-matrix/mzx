@@ -1,0 +1,12 @@
+[package]
+name = "mzx-convert"
+description = "The production conversion pipeline (read, filter, brand, write) that the contract proof exercises"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+mzx-filters = { path = "../mzx-filters" }
+mzx-mzml = { path = "../mzx-mzml" }
+mzx-thermo = { path = "../mzx-thermo" }

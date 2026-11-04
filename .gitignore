@@ -4,7 +4,9 @@
 **.d
 results
 .mypy_cache
-rust*
+rust/target/
+# golden corpus (hundreds of MB; see rust/corpus/README.md)
+goldens/
 .pytest_cache
 **/tmp
 **NIST**/

@@ -90,6 +90,35 @@ Vendor support
 
 Conversion uses ProteoWizard; supported vendors include Agilent, Bruker, Sciex, Shimadzu, Thermo, Waters, and UIMF. See the `ProteoWizard FAQ <https://proteowizard.sourceforge.io/faq.html>`_ for vendor-specific notes.
 
+Rust backend (experimental)
+---------------------------
+
+``rust/`` contains a pure-Rust Thermo RAW → mzML converter, ``mzx-rs``, that runs
+without Docker. It writes output only when that output is **proven byte-identical**
+to the pinned msconvert, after normalizing the converter's name, version and command
+line and the input file location (see ``rust/CONTRACT.md``). Proof means
+comparison against msconvert goldens for the files and option sets listed in
+``rust/support_matrix.toml``. Today that is Q Exactive Focus files (with
+the default options and with no filters) and LTQ XL files with no filters.
+For anything else the Rust backend refuses, and mzx falls back to msconvert in Docker.
+
+Build and install it into the same environment as mzx (needs a Rust toolchain):
+
+.. code-block:: console
+
+        pip install maturin
+        make rust-wheel
+        pip install rust/dist/mzx_rs-*.whl
+
+Choose the backend with ``--backend``:
+
+* ``auto`` (default): Rust when ``mzx-rs`` is installed and supports the file and
+  options, otherwise msconvert in Docker.
+* ``rust``: Rust only; fails instead of falling back.
+* ``docker``: always msconvert.
+
+The Rust backend ignores the msconvert ``timeout`` setting.
+
 Supported file formats (examples)
 ---------------------------------
 
