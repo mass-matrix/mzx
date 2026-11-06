@@ -132,7 +132,11 @@ From a clone, build and install it into the same environment as mzx instead:
 
 .. code-block:: console
 
-        pip install ./rust/crates/mzx-py
+        uv pip install -e ".[rust]"
+
+With uv, the ``rust`` extra resolves to ``rust/crates/mzx-py`` in the clone
+(``[tool.uv.sources]``), and editing any Rust source rebuilds it on the next
+install. With pip, install it explicitly: ``pip install -e . ./rust/crates/mzx-py``.
 
 Choose the backend with ``--backend``:
 

@@ -1,4 +1,4 @@
-.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall rust-test rust-wheel rust-sdist rust-release rust-release-test
+.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall install-rust rust-test rust-wheel rust-sdist rust-release rust-release-test
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -66,6 +66,9 @@ help: ## show this help
 
 install: ## editable install of mzx (use after `make setup` or with uv/pip in your env)
 	uv pip install -e .
+
+install-rust: ## editable install of mzx plus the Rust backend built from rust/ (uv)
+	uv pip install -e ".[rust]"
 
 lint: ## run ruff linter
 	ruff check .

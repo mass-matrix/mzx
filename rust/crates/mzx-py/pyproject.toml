@@ -30,3 +30,14 @@ dynamic = ["version"]
 python-source = "python"
 module-name = "mzx_rs._mzx_rs"
 features = ["pyo3/extension-module"]
+
+# uv caches the built extension; rebuild it when any Rust source or manifest
+# in the workspace changes, not only this file.
+[tool.uv]
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "../../Cargo.toml" },
+  { file = "../../Cargo.lock" },
+  { file = "../../crates/**/*.rs" },
+  { file = "../../crates/**/Cargo.toml" },
+]

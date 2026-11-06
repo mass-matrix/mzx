@@ -57,4 +57,4 @@ Create a virtual environment and install dependencies, then install mzx in edita
     $ pip install -e .
     $ pip install ./rust/crates/mzx-py   # optional: the Rust backend
 
-If you use `uv <https://docs.astral.sh/uv/>`_, you can run ``make setup`` and ``make install`` from the project root instead (see ``README.rst``).
+If you use `uv <https://docs.astral.sh/uv/>`_, you can run ``make setup`` and ``make install`` from the project root instead (see ``README.rst``). ``uv pip install -e ".[rust]"`` (or ``make install-rust``) also builds the Rust backend from ``rust/crates/mzx-py`` in the clone.

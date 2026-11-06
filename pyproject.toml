@@ -38,6 +38,12 @@ dynamic = ["version"]
 # rust/Cargo.toml's workspace version when releasing mzx-rs.
 rust = ["mzx-rs==0.1.0"]
 
+# In this repo, uv builds mzx-rs from rust/crates/mzx-py instead of PyPI, so
+# `uv pip install -e ".[rust]"` works from a clone. Only uv reads this; the
+# published metadata still says mzx-rs==0.1.0.
+[tool.uv.sources]
+mzx-rs = { path = "rust/crates/mzx-py" }
+
 [project.scripts]
 mzx = "mzx.cli:main"
 
