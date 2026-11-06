@@ -127,6 +127,8 @@ impl Ctx<'_> {
 
     /// `ThermoRawFile.GetPeaks(scan, preferCentroid)`.
     fn peaks(&self, s: &MsScan, prefer_centroid: bool) -> Result<(Vec<f64>, Vec<f64>)> {
+        // mzx models Thermo's ion-trap centroider only
+        let itms = s.filter.analyzer == crate::filter::Analyzer::Itms;
         match self.raw.ms_peaks(self.ms_rh, &s.index)? {
             // FTMS centroid packets: the segmented scan and the centroid
             // stream are the same peak list, so preferCentroid does not
@@ -136,19 +138,36 @@ impl Ctx<'_> {
                 mz.into_iter().map(f64::from).collect(),
                 intensity.into_iter().map(f64::from).collect(),
             )),
-            Peaks::Profile { .. } if prefer_centroid => Err(unsupported(
-                "vendor centroiding of ion-trap profile scans (Scan.ToCentroid)",
+            Peaks::Profile { .. } if prefer_centroid && !itms => Err(unsupported(
+                "vendor centroiding (Scan.ToCentroid) of a profile scan that is not ion-trap",
             )),
             Peaks::Profile {
                 first,
                 step,
                 intensity,
-            } => Ok((
-                (1..=intensity.len())
-                    .map(|k| first + k as f64 * step)
-                    .collect(),
-                intensity.into_iter().map(f64::from).collect(),
-            )),
+            } => {
+                // pwiz centroids only a scan whose segment has at least two
+                // points (CanFragmentEverySegment), and falls back to the
+                // segmented scan (the profile) when ToCentroid finds no peaks.
+                if prefer_centroid && intensity.len() >= 2 {
+                    if step != crate::centroid::STEP {
+                        return Err(unsupported(format!(
+                            "ion-trap centroiding of a profile with step {step} \
+                             (only 1/12 m/z is modeled)"
+                        )));
+                    }
+                    let (mz, y) = crate::centroid::centroid(first, step, &intensity);
+                    if !mz.is_empty() {
+                        return Ok((mz, y));
+                    }
+                }
+                Ok((
+                    (1..=intensity.len())
+                        .map(|k| first + k as f64 * step)
+                        .collect(),
+                    intensity.into_iter().map(f64::from).collect(),
+                ))
+            }
         }
     }
 }
@@ -159,6 +178,11 @@ pub fn read(path: &Path, opts: &Options) -> Result<MsData> {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect::<String>();
+    // Thermo's reader refuses a file whose header checksum does not match
+    // ("IsError"), so msconvert produces nothing for it.
+    if crate::raw::stored_checksum(&bytes) != Some(crate::raw::compute_checksum(&bytes)) {
+        return Err(Unsupported("file header checksum mismatch".into()).into());
+    }
     let raw = RawFile::parse(bytes)?;
     let file_name = path
         .file_name()
@@ -899,6 +923,16 @@ fn pda_chromatogram(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_checksum_is_adler32_from_zero_without_its_field() {
+        // zlib.adler32(data with bytes 148..152 zeroed, 0)
+        let mut b: Vec<u8> = (0..=255u8).chain(0..=255u8).collect();
+        assert_eq!(crate::raw::compute_checksum(&b), 0x927dfcaa);
+        b[148..152].copy_from_slice(&0xdead_beefu32.to_le_bytes());
+        assert_eq!(crate::raw::compute_checksum(&b), 0x927dfcaa);
+        assert_eq!(crate::raw::stored_checksum(&b), Some(0xdead_beef));
+    }
 
     #[test]
     fn g17_matches_dotnet() {

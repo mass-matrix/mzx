@@ -16,19 +16,33 @@ scan_events = ["FTMS + c ESI Full ms", "FTMS + c ESI Full lock ms", "FTMS + c ES
 option_sets = ["default", "nofilter"]
 files = ["190218_AR_JH_A_pos.raw", "190218_AR_JH_Blank2_pos.raw"]
 
+# LTQ XL ion-trap files. Vendor peak picking of their profile scans uses
+# mzx's model of Thermo's ion-trap Scan.ToCentroid
+# (crates/mzx-thermo/src/centroid.rs, inferred from msconvert output), proven
+# 2026-11-06: every centroid of every Thermo-centroided profile scan (MS1 and
+# MS2) matches bit for bit, and so do the precursor peak intensities summed
+# over vendor-centroided MS1.
 [[proven]]
 vendor = "Thermo"
 raw_version = 66
 instrument = "LTQ XL"
 controllers = ["MS"]
 scan_events = ["ITMS - p ESI Full ms", "ITMS - c ESI d Full ms2 <mz>@cid<e>"]
-option_sets = ["nofilter"]
+option_sets = ["nofilter", "default", "pickall", "pickall_rz"]
 files = ["LR_p_LTQ_HILIC_ecoli.raw"]
 
-[[unsupported]]
+[[proven]]
 vendor = "Thermo"
 raw_version = 66
 instrument = "LTQ XL"
-reason = "precursor peak intensities need Thermo's ion-trap profile centroiding (Scan.ToCentroid) of the MS1 scan"
-option_sets = ["default"]
-files = ["LR_p_LTQ_HILIC_ecoli.raw"]
+controllers = ["MS"]
+scan_events = ["ITMS - p ESI Full ms", "ITMS - p ESI d Full ms2 <mz>@cid<e>"]
+option_sets = ["nofilter", "default", "pickall", "pickall_rz"]
+files = ["LR_p_LTQ_IPRP.raw", "LR_p_LTQ_IPRP_ecoli.raw"]
+
+[[unsupported]]
+vendor = "Thermo"
+instrument = "Orbitrap Fusion Lumos"
+reason = "unproven instrument family and controller kind 2 (Vanquish); goldens exist, reader not written"
+option_sets = ["default", "nofilter"]
+files = ["HR_OH_Orbi_HILIC.raw", "LR_OH_Orbi_HILIC.raw"]

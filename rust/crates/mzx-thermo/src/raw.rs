@@ -72,6 +72,36 @@ pub struct RawFile {
     pub method: Option<MethodFile>,
 }
 
+/// Byte offset of the file-header checksum (the last word of the audit-start tag).
+pub const CHECKSUM_OFFSET: usize = 148;
+/// The checksum covers this many leading bytes of the file.
+pub const CHECKSUM_SPAN: usize = 10 * 1024 * 1024;
+
+/// The file-header checksum as stored.
+pub fn stored_checksum(bytes: &[u8]) -> Option<u32> {
+    let w = bytes.get(CHECKSUM_OFFSET..CHECKSUM_OFFSET + 4)?;
+    Some(u32::from_le_bytes(w.try_into().unwrap()))
+}
+
+/// The file-header checksum recomputed: Adler-32 with an initial value of 0
+/// over the first 10 MiB, with the checksum field read as zero. Inferred from
+/// the corpus (matches all 7 RAW files) and confirmed by msconvert rejecting
+/// files whose covered bytes were edited ("IsError").
+pub fn compute_checksum(bytes: &[u8]) -> u32 {
+    const M: u32 = 65521;
+    let (mut a, mut b) = (0u32, 0u32);
+    for (i, &x) in bytes.iter().take(CHECKSUM_SPAN).enumerate() {
+        let x = if (CHECKSUM_OFFSET..CHECKSUM_OFFSET + 4).contains(&i) {
+            0
+        } else {
+            x
+        };
+        a = (a + x as u32) % M;
+        b = (b + a) % M;
+    }
+    (b << 16) | a
+}
+
 impl RawFile {
     pub fn open(path: &std::path::Path) -> Result<Self> {
         let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;

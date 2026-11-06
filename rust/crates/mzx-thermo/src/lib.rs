@@ -1,6 +1,7 @@
 //! Pure-Rust Thermo RAW reader (proof of concept, RAW v66 only).
 
 pub mod bytes;
+pub mod centroid;
 pub mod events;
 pub mod filter;
 pub mod generic;

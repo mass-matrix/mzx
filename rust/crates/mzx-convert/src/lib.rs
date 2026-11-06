@@ -34,6 +34,10 @@ pub enum OptionSet {
     Default,
     /// `--mzML --noindex`
     NoFilter,
+    /// `--mzML --noindex --filter "peakPicking true 1-"` (mzx `--peak_picking all`)
+    PickAll,
+    /// `--mzML --noindex --filter "peakPicking true 1-" --filter "zeroSamples removeExtra"`
+    PickAllRemoveZeros,
 }
 
 impl OptionSet {
@@ -41,6 +45,8 @@ impl OptionSet {
         match self {
             OptionSet::Default => "default",
             OptionSet::NoFilter => "nofilter",
+            OptionSet::PickAll => "pickall",
+            OptionSet::PickAllRemoveZeros => "pickall_rz",
         }
     }
 
@@ -51,6 +57,10 @@ impl OptionSet {
                 r#"--mzML --noindex --filter "peakPicking true 2-" --filter "zeroSamples removeExtra""#
             }
             OptionSet::NoFilter => "--mzML --noindex",
+            OptionSet::PickAll => r#"--mzML --noindex --filter "peakPicking true 1-""#,
+            OptionSet::PickAllRemoveZeros => {
+                r#"--mzML --noindex --filter "peakPicking true 1-" --filter "zeroSamples removeExtra""#
+            }
         }
     }
 
@@ -58,7 +68,21 @@ impl OptionSet {
         match self {
             OptionSet::Default => mzx_filters::mzx_default_thermo(),
             OptionSet::NoFilter => vec![],
+            OptionSet::PickAll => vec![pick_all()],
+            OptionSet::PickAllRemoveZeros => vec![
+                pick_all(),
+                mzx_filters::Filter::ZeroSamplesRemoveExtra {
+                    ms_levels: mzx_filters::IntegerSet::positive(),
+                },
+            ],
         }
+    }
+}
+
+fn pick_all() -> mzx_filters::Filter {
+    mzx_filters::Filter::PeakPickingVendor {
+        ms_levels: mzx_filters::IntegerSet::parse("1-").expect("static"),
+        vendor_name: mzx_filters::peak_picking::THERMO_VENDOR_CENTROID_NAME.to_string(),
     }
 }
 
@@ -68,6 +92,8 @@ impl FromStr for OptionSet {
         match s {
             "default" => Ok(OptionSet::Default),
             "nofilter" => Ok(OptionSet::NoFilter),
+            "pickall" => Ok(OptionSet::PickAll),
+            "pickall_rz" => Ok(OptionSet::PickAllRemoveZeros),
             o => Err(Unsupported(format!("option set {o:?}")).into()),
         }
     }
@@ -218,6 +244,19 @@ mod tests {
             "nofilter".parse::<OptionSet>().unwrap(),
             OptionSet::NoFilter
         );
+        assert_eq!("pickall".parse::<OptionSet>().unwrap(), OptionSet::PickAll);
+        assert_eq!(
+            "pickall_rz".parse::<OptionSet>().unwrap(),
+            OptionSet::PickAllRemoveZeros
+        );
+        for o in [
+            OptionSet::Default,
+            OptionSet::NoFilter,
+            OptionSet::PickAll,
+            OptionSet::PickAllRemoveZeros,
+        ] {
+            assert_eq!(o.name().parse::<OptionSet>().unwrap(), o);
+        }
         let e = "mgf".parse::<OptionSet>().unwrap_err();
         assert!(is_unsupported(&e));
         assert!(!is_unsupported(&anyhow::anyhow!("disk full")));

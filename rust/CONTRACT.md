@@ -42,6 +42,8 @@ A contract case is `(raw input bytes, option set)`.
 |---|---|---|
 | `default` | `--mzML --noindex --filter "peakPicking true 2-" --filter "zeroSamples removeExtra"` | Exactly what `mzx <file>` runs today (CLI defaults: `--index` off, `peak_picking=msms`, `remove_zeros` on) |
 | `nofilter` | `--mzML --noindex` | Test-only: isolates reader output from the filters |
+| `pickall` | `--mzML --noindex --filter "peakPicking true 1-"` | mzx peak picking "all" without remove-zeros (also the `vendorcentroid` probe goldens) |
+| `pickall_rz` | `pickall` + `--filter "zeroSamples removeExtra"` | mzx peak picking "all" (default remove-zeros) |
 
 Encoding is msconvert 4.x's default (`MsConvert/src/Config.cs`): binary arrays
 64-bit, intensity 32-bit, integer arrays always 64-bit, **zlib**.
@@ -126,6 +128,11 @@ Coverage grows by adding files that differ along the dimensions recorded in
   kind, instrument recipe, scan-event preamble byte, activation, packet type,
   trailer value type, SPS/master-scan trailer or non-monotonic retention time
   returns `mzx_thermo::Unsupported`.
+  So does a file whose header checksum doesn't match, which msconvert also
+  rejects ("Thermo RAW file reports IsError"). The checksum is the u32 at file
+  offset 148: Adler-32 with an initial value of 0 over the first 10 MiB, with
+  the field itself read as zero. It was inferred from the corpus (all 7 RAW
+  files match) and confirmed by msconvert's response to edited copies.
 - **Thermo reader, LTQ XL:** `LR_p_LTQ_HILIC_ecoli.raw` × `nofilter` proven
   2026-11-04 (all 3,997 spectra: ITMS profile MS1, LR centroid CID MS2, sample
   list, TIC). Isolation widths come from the embedded instrument method
@@ -133,13 +140,36 @@ Coverage grows by adding files that differ along the dimensions recorded in
   first time segment receive them in the golden although every method segment
   lists a width, which fits the SDK numbering scan events across segments.
   Scans for which the plausible numberings would give different widths are
-  refused. `default` is **refused**: its 807 differing precursor peak
-  intensities are sums over Thermo's ion-trap centroiding of the profile MS1
-  (`Scan.ToCentroid`), a closed algorithm that is not ported. The 16 windows
-  where the two goldens agree are consistent with a centroid's intensity being
-  the sum of its profile points, but no simple segmentation reproduces the
-  rest. The reader is told about vendor peak picking via
+  refused. `default` needs Thermo's ion-trap centroiding of the profile MS1:
+  its 807 differing precursor peak intensities are sums over the vendor
+  centroids (`Scan.ToCentroid`), reproduced by mzx's ion-trap centroider
+  (below). The reader is told about vendor peak picking via
   `mzx_verify::thermo_reader_options` (derived from the filter chain).
+- **Thermo reader, LTQ XL with profile MS2:** `LR_p_LTQ_IPRP.raw` and
+  `LR_p_LTQ_IPRP_ecoli.raw` × `nofilter` proven 2026-11-05 (MS1 and CID MS2
+  both ITMS profile). `default` needs Thermo's ion-trap centroiding of every
+  MS2 scan (below).
+- **Ion-trap centroiding** (`crates/mzx-thermo/src/centroid.rs`): a model of
+  Thermo's closed `Scan.ToCentroid` for ITMS profile scans, inferred only from
+  msconvert output for the corpus and for six synthetic probe files
+  (profile intensities patched into copies of `LR_p_LTQ_HILIC_ecoli.raw`;
+  the probe builders are lab tools, not shipped). RawFileReader was not
+  decompiled or inspected.
+  Proven 2026-11-06: `LR_p_LTQ_HILIC_ecoli`, `LR_p_LTQ_IPRP`
+  and `LR_p_LTQ_IPRP_ecoli` × `{default, pickall, pickall_rz}` are IDENTICAL
+  (every centroid of 8,646 profile MS1 and 10,154 profile MS2 scans bit for
+  bit, and all 823 precursor intensities). `pickall` of probes 2–6 (about 5.9
+  million centroids, including 189,000 placed within 0.003 ULP of a rounding
+  tie) is identical as well. When the model finds no point >= 1 the reader
+  returns the profile, as pwiz does when `ToCentroid` returns no peaks; a
+  profile whose step is not 1/12 m/z is refused, and so is vendor peak
+  picking of a profile scan from any analyzer other than the ion trap. Being
+  a model of a closed algorithm, it is only as general as this corpus. Until
+  2026-11-06 it was opt-in (an "experimental centroiding" setting); with
+  every corpus conversion byte-identical it is now always used.
+- **Orbitrap Fusion Lumos** (`HR_OH_Orbi_HILIC`, `LR_OH_Orbi_HILIC`, with a
+  Vanquish controller of kind 2): goldens exist for both option sets, but there
+  is no reader for this family yet, so both files are refused.
 - **Shipped pipeline (M4):** `crates/mzx-convert` (`convert_thermo`: read →
   filters → brand → atomic write) is what both the Python extension
   (`crates/mzx-py`, module `mzx_rs`) and the reader proof run, so the proof
@@ -149,7 +179,8 @@ Coverage grows by adding files that differ along the dimensions recorded in
   MS:1001885 (normalization 3). The proof passed on this branded output
   (2026-11-04), and an end-to-end `mzx --backend rust` conversion of Blank2
   passed `mzx-verify cmp`. mzx (`src/mzx/rust_backend.py`) maps its options to
-  `default` or `nofilter` and sends anything else to msconvert; `--backend auto`
+  `default`, `nofilter`, `pickall` or `pickall_rz` and sends anything else to
+  msconvert; `--backend auto`
   also falls back on any Rust refusal or error.
 - **Host assumption:** `run/@startTimeStamp` is the RAW creation FILETIME
   shifted by the converting host's UTC offset (`ReaderConfig.FormatStartTimeStamp`).

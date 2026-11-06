@@ -10,6 +10,9 @@
 # Option sets:
 #   default   what `mzx <file>` runs today
 #   nofilter  no filters (used to prove the filter ports in isolation)
+#   pickall   peak picking on every MS level (mzx GUI/CLI peak picking "all")
+#   pickall_rz  pickall plus zeroSamples removeExtra
+#   vendorcentroid  research name for the probe files; same arguments as pickall
 set -euo pipefail
 
 REPO="chambm/pwiz-skyline-i-agree-to-the-vendor-licenses"
@@ -20,7 +23,7 @@ if [[ "${1:-}" == "--resolve" ]]; then
 fi
 
 if [[ $# -lt 2 ]]; then
-    sed -n '2,13p' "$0" >&2
+    sed -n '2,17p' "$0" >&2
     exit 2
 fi
 
@@ -40,6 +43,8 @@ STEM="${NAME%.*}"
 case "$OPTSET" in
     default)  ARGS=(--mzML --noindex --filter "peakPicking true 2-" --filter "zeroSamples removeExtra") ;;
     nofilter) ARGS=(--mzML --noindex) ;;
+    pickall|vendorcentroid) ARGS=(--mzML --noindex --filter "peakPicking true 1-") ;;
+    pickall_rz) ARGS=(--mzML --noindex --filter "peakPicking true 1-" --filter "zeroSamples removeExtra") ;;
     *) echo "unknown option set: $OPTSET" >&2; exit 2 ;;
 esac
 

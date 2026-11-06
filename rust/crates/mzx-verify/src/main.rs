@@ -35,7 +35,7 @@ enum Cmd {
     Convert {
         raw: PathBuf,
         out: PathBuf,
-        /// Option set: `default` or `nofilter`.
+        /// Option set: `default`, `nofilter`, `pickall` or `pickall_rz`.
         #[arg(long, default_value = "default")]
         options: String,
     },

@@ -180,7 +180,7 @@ impl ScanFilter {
                 vec![]
             }
             (Family::LtqXl, 2) => {
-                shape(e.reactions.len() == 1 && centroid && dependent)?;
+                shape(e.reactions.len() == 1 && dependent)?;
                 let r = &e.reactions[0];
                 shape(r.range_valid == 0 && r.flags == REACTION_CID && r.isolation_offset == 0.0)?;
                 vec![FilterPrecursor {
@@ -388,12 +388,20 @@ mod tests {
         // A family's events are not accepted as the other family's.
         assert_unsupported(&ltq_event(2), Family::QExactive, "ltq as qe");
         assert_unsupported(&qe_event(2), Family::LtqXl, "qe as ltq");
-        // LTQ: centroid MS1 / profile MS2 are not proven.
+        // LTQ: centroid MS1 is not proven.
         let mut e = ltq_event(1);
         e.preamble[SCAN_DATA] = 0;
         assert_unsupported(&e, Family::LtqXl, "centroid ms1");
+    }
+
+    #[test]
+    fn ltq_profile_ms2_is_proven() {
+        // LR_p_LTQ_IPRP*.raw: MS2 recorded as ITMS profile.
         let mut e = ltq_event(2);
         e.preamble[SCAN_DATA] = 1;
-        assert_unsupported(&e, Family::LtqXl, "profile ms2");
+        assert_eq!(
+            ScanFilter::decode(&e, Family::LtqXl).unwrap().to_string(),
+            "ITMS - p ESI d Full ms2 814.64@cid35.00 [210.00-1640.00]"
+        );
     }
 }

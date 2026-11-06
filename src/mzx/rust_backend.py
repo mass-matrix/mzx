@@ -36,7 +36,9 @@ def option_set(params: types.TConfig) -> str | None:
 
     ``default`` is ``--mzML --noindex --filter "peakPicking true 2-" --filter
     "zeroSamples removeExtra"`` (mzx's CLI defaults); ``nofilter`` is
-    ``--mzML --noindex``.
+    ``--mzML --noindex``; ``pickall`` is ``--mzML --noindex --filter
+    "peakPicking true 1-"`` (the GUI's peak picking) and ``pickall_rz`` adds
+    ``--filter "zeroSamples removeExtra"``.
     """
     if (
         params["type"].lower() != "mzml"
@@ -50,6 +52,10 @@ def option_set(params: types.TConfig) -> str | None:
             return "default"
         case ("off", False):
             return "nofilter"
+        case ("all", False):
+            return "pickall"
+        case ("all", True):
+            return "pickall_rz"
         case _:
             return None
 

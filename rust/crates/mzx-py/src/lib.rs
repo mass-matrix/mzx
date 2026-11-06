@@ -25,8 +25,8 @@ create_exception!(
 );
 
 /// Convert a Thermo RAW file to mzML at `outfile` with a contract option set
-/// (`"default"` or `"nofilter"`). `command_line` is recorded in cvParam
-/// MS:1001885 where msconvert records its argv.
+/// (`"default"`, `"nofilter"`, `"pickall"` or `"pickall_rz"`). `command_line`
+/// is recorded in cvParam MS:1001885 where msconvert records its argv.
 #[pyfunction]
 fn convert(
     py: Python<'_>,
@@ -67,7 +67,10 @@ fn to_py(e: &anyhow::Error) -> PyErr {
 #[pymodule]
 fn _mzx_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", mzx_convert::VERSION)?;
-    m.add("OPTION_SETS", ("default", "nofilter"))?;
+    m.add(
+        "OPTION_SETS",
+        ("default", "nofilter", "pickall", "pickall_rz"),
+    )?;
     m.add("Unsupported", m.py().get_type::<Unsupported>())?;
     m.add("ConversionError", m.py().get_type::<ConversionError>())?;
     m.add_function(wrap_pyfunction!(convert, m)?)?;
