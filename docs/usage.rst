@@ -22,7 +22,7 @@ Conversion backend:
 
 .. code-block:: console
 
-  mzx --backend auto /path/to/data.raw    # default: proven Rust backend if installed, else Docker
+  mzx --backend auto /path/to/data.raw    # default: proven Rust backend if installed (mzx[rust]), else Docker
   mzx --backend rust /path/to/data.raw    # Rust only (Thermo); fails when unsupported
   mzx --backend docker /path/to/data.raw  # always msconvert in Docker
 

@@ -1,0 +1,52 @@
+name: release mzx-rs
+
+# Publishes the mzx-rs source distribution to PyPI when a tag `mzx-rs-v<version>`
+# is pushed. <version> must equal rust/Cargo.toml's workspace version, and
+# mzx's `rust` extra must pin it. Uses PyPI trusted publishing: register this
+# repository, this workflow file and the `pypi` environment as a trusted
+# publisher of the `mzx-rs` project on pypi.org (no API token needed).
+
+on:
+  push:
+    tags: ["mzx-rs-v*"]
+
+jobs:
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the tag against the crate version and mzx's pin
+        run: |
+          tag="${GITHUB_REF_NAME#mzx-rs-v}"
+          crate=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' rust/Cargo.toml)
+          test "$tag" = "$crate" || { echo "tag $tag != rust/Cargo.toml $crate"; exit 1; }
+          grep -q "\"mzx-rs==$crate\"" pyproject.toml || { echo "pyproject.toml rust extra does not pin mzx-rs==$crate"; exit 1; }
+      - name: Build sdist
+        run: |
+          python -m pip install --upgrade pip maturin
+          cd rust/crates/mzx-py && maturin sdist -o ../../dist
+      - name: Install it from source
+        run: |
+          python -m venv /tmp/v
+          /tmp/v/bin/pip install rust/dist/*.tar.gz
+          /tmp/v/bin/python -c "import mzx_rs; print('mzx-rs', mzx_rs.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mzx-rs-sdist
+          path: rust/dist/*.tar.gz
+
+  publish:
+    needs: sdist
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mzx-rs-sdist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

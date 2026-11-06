@@ -42,6 +42,13 @@ Install
 
         pip install -U mzx
 
+To also install the Rust backend, which converts supported Thermo files without
+Docker (see `Rust backend`_):
+
+.. code-block:: console
+
+        pip install -U "mzx[rust]"
+
 Quick start
 -----------
 
@@ -90,25 +97,42 @@ Vendor support
 
 Conversion uses ProteoWizard; supported vendors include Agilent, Bruker, Sciex, Shimadzu, Thermo, Waters, and UIMF. See the `ProteoWizard FAQ <https://proteowizard.sourceforge.io/faq.html>`_ for vendor-specific notes.
 
-Rust backend (experimental)
----------------------------
+Rust backend
+------------
 
 ``rust/`` contains a pure-Rust Thermo RAW → mzML converter, ``mzx-rs``, that runs
 without Docker. It writes output only when that output is **proven byte-identical**
 to the pinned msconvert, after normalizing the converter's name, version and command
 line and the input file location (see ``rust/CONTRACT.md``). Proof means
 comparison against msconvert goldens for the files and option sets listed in
-``rust/support_matrix.toml``. Today that is Q Exactive Focus files (with
-the default options and with no filters) and LTQ XL files with no filters.
+``rust/support_matrix.toml``. Today that is:
+
+* Q Exactive Focus files with the default options and with no filters.
+* LTQ XL ion-trap files with the default options, with no filters, and with peak
+  picking on all MS levels (with or without zero removal). Peak picking of their
+  profile scans uses mzx's model of Thermo's ion-trap centroider, which matches
+  every centroid of the corpus bit for bit.
+
 For anything else the Rust backend refuses, and mzx falls back to msconvert in Docker.
 
-Build and install it into the same environment as mzx (needs a Rust toolchain):
+``mzx-rs`` is a separate package, installed with the ``rust`` extra:
 
 .. code-block:: console
 
-        pip install maturin
-        make rust-wheel
-        pip install rust/dist/mzx_rs-*.whl
+        pip install "mzx[rust]"
+
+There are no prebuilt wheels yet, so pip compiles ``mzx-rs`` from source. That
+needs a C compiler: gcc or clang on Linux, the Xcode command line tools on macOS
+(``xcode-select --install``), or the Visual Studio Build Tools ("Desktop
+development with C++") on Windows. A missing Rust toolchain and CMake are
+downloaded automatically during the build; the first install takes a few
+minutes. If the build fails, plain ``pip install mzx`` still works with Docker.
+
+From a clone, build and install it into the same environment as mzx instead:
+
+.. code-block:: console
+
+        pip install ./rust/crates/mzx-py
 
 Choose the backend with ``--backend``:
 

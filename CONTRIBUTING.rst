@@ -115,3 +115,17 @@ Tips
 To run a subset of tests::
 
     $ python -m pytest tests/test_vendor.py -v
+
+Releasing mzx-rs
+----------------
+
+``mzx[rust]`` pins an exact ``mzx-rs`` version, so publish ``mzx-rs`` first:
+
+1. Bump ``version`` under ``[workspace.package]`` in ``rust/Cargo.toml`` and the
+   ``mzx-rs==`` pin of the ``rust`` extra in ``pyproject.toml`` together.
+2. Push the tag ``mzx-rs-v<version>``. The ``release mzx-rs`` workflow checks the
+   tag against both versions, builds the sdist, installs it from source, and
+   publishes it to PyPI through trusted publishing. ``make rust-release`` does
+   the same by hand with twine; it refuses to build from a ``rust/`` tree with
+   uncommitted or untracked files, because ``maturin sdist`` would pack them.
+3. Release mzx as usual.

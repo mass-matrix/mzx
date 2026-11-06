@@ -1,4 +1,4 @@
-.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall rust-test rust-wheel
+.PHONY: clean clean-build clean-pyc clean-test dist docs format help install lint lint-fix mypy release release-test servedocs setup test uninstall rust-test rust-wheel rust-sdist rust-release rust-release-test
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -100,3 +100,17 @@ rust-test: ## rustfmt, clippy and tests for the Rust workspace (set MZX_CORPUS/M
 
 rust-wheel: ## build the mzx-rs wheel (Rust backend) into rust/dist/ (needs maturin)
 	cd rust/crates/mzx-py && maturin build --release -o ../../dist
+
+# maturin sdist packs every file that is not git-ignored, so refuse to build
+# from a tree with untracked or modified files under rust/.
+rust-sdist: ## build the mzx-rs source distribution into rust/dist/ (needs maturin; clean rust/ tree)
+	@test -z "$$(git status --porcelain --untracked-files=all -- rust)" || \
+		{ echo "rust/ has uncommitted or untracked files; the sdist would include them" >&2; exit 1; }
+	rm -f rust/dist/mzx_rs-*.tar.gz
+	cd rust/crates/mzx-py && maturin sdist -o ../../dist
+
+rust-release: rust-sdist ## upload the mzx-rs sdist to PyPI (publish before an mzx release that pins it)
+	twine upload --verbose rust/dist/mzx_rs-*.tar.gz
+
+rust-release-test: rust-sdist ## upload the mzx-rs sdist to TestPyPI
+	twine upload --verbose --repository pypitest rust/dist/mzx_rs-*.tar.gz

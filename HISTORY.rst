@@ -2,6 +2,12 @@
 History
 =======
 
+Unreleased
+----------
+* Rust backend: ``mzx-rs``, a pure-Rust Thermo RAW → mzML converter whose output is proven byte-identical to the pinned msconvert, is installable with ``pip install "mzx[rust]"`` (built from source; needs a C compiler). ``--backend auto`` uses it for proven inputs and falls back to msconvert in Docker.
+* Rust backend coverage: Q Exactive Focus (default, no filters) and LTQ XL (default, no filters, peak picking on all levels with or without zero removal), including a reproduction of Thermo's ion-trap centroiding.
+* Release: ``make rust-sdist`` / ``make rust-release`` and the ``release mzx-rs`` workflow (tag ``mzx-rs-v<version>``) publish the ``mzx-rs`` source distribution to PyPI.
+
 0.3.2 (2026-03-25)
 ------------------
 * Documentation: README and Sphinx docs updated for clearer setup, prerequisites (Docker, Python 3.10+), installation from source, and usage; fixed incorrect license line in usage docs (GPLv3); corrected CONTRIBUTING workflow (ruff, pytest, ``make`` targets) and removed stale template text.

@@ -1,13 +1,30 @@
 [build-system]
-requires = ["maturin>=1.8,<2"]
+# Installing from the sdist compiles the extension: maturin drives cargo (and
+# downloads a Rust toolchain when none is installed), and the cmake package
+# supplies CMake for the bundled zlib-ng, so only a C compiler is required.
+requires = ["maturin>=1.8,<2", "cmake>=3.18"]
 build-backend = "maturin"
 
 [project]
 name = "mzx-rs"
 description = "Proven pure-Rust conversion backend for mzx (Thermo RAW to mzML, byte-identical to msconvert)"
+readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
+keywords = ["mass spectrometry", "mzML", "Thermo RAW", "msconvert"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering :: Chemistry",
+]
 dynamic = ["version"]
+
+[project.urls]
+"Source Code" = "https://github.com/mass-matrix/mzx/tree/main/rust"
+"Issue Tracker" = "https://github.com/mass-matrix/mzx/issues"
 
 [tool.maturin]
 python-source = "python"

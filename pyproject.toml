@@ -32,6 +32,12 @@ requires-python = ">=3.10"
 dependencies = ["loguru>=0.5.0", "lxml>=4.6.0", "pyside6>=6.0"]
 dynamic = ["version"]
 
+[project.optional-dependencies]
+# The proven pure-Rust Thermo converter (rust/crates/mzx-py). Pinned exactly:
+# its byte-identical guarantee is tied to one build. Bump together with
+# rust/Cargo.toml's workspace version when releasing mzx-rs.
+rust = ["mzx-rs==0.1.0"]
+
 [project.scripts]
 mzx = "mzx.cli:main"
 

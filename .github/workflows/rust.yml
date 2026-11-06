@@ -52,6 +52,32 @@ jobs:
           python -c "import mzx_rs; print('mzx-rs', mzx_rs.__version__)"
           make test
 
+  # What `pip install "mzx[rust]"` does until there are wheels: build the
+  # mzx-rs sdist and compile it from source in a fresh environment, resolving
+  # mzx's `rust` extra (which pins the exact mzx-rs version) against it.
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist
+        run: |
+          python -m pip install --upgrade pip maturin
+          cd crates/mzx-py && maturin sdist -o ../../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mzx-rs-sdist
+          path: rust/dist/*.tar.gz
+      - name: pip install "mzx[rust]" from source
+        working-directory: .
+        run: |
+          python -m venv /tmp/v
+          /tmp/v/bin/pip install --upgrade pip
+          /tmp/v/bin/pip install --no-binary mzx-rs --find-links rust/dist ".[rust]"
+          /tmp/v/bin/python -c "import mzx.rust_backend as r, mzx_rs; assert r.available(); print('mzx-rs', mzx_rs.__version__)"
+
   # The contract proof against msconvert goldens. Raw files and goldens are not
   # in git, so this runs only on a runner that has them: set the repository
   # variables MZX_CORPUS (directory holding goldens/) and MZX_RAW (directory
